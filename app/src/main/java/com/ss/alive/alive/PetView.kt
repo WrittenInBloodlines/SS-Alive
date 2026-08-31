@@ -1,15 +1,16 @@
 package com.ss.alive.alive
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
-import androidx.appcompat.widget.AppCompatTextView
 import kotlin.math.abs
 
-class PetView(context: Context) : AppCompatTextView(context) {
+class PetView(context: Context) : View(context) {
     private var downX = 0f
     private var downY = 0f
     private var startX = 0
@@ -18,34 +19,41 @@ class PetView(context: Context) : AppCompatTextView(context) {
 
     private val handler = Handler(Looper.getMainLooper())
     private val behavior = PetBehavior(speedPxPerTick = 4)
-    private var originalPet = "🐈"
+    private var animationFrame = 0
+    private var lastAnimationTime = 0L
+    private var lastState = behavior.state
+    private var lastDirection = behavior.direction
 
     private val walkRunnable = object : Runnable {
         override fun run() {
             if (!dragging) movePet()
+            updateSpriteFrame()
+            invalidate()
             handler.postDelayed(this, 30L)
         }
     }
 
     init {
-        text = originalPet
-        textSize = 64f
-        gravity = android.view.Gravity.CENTER
-        setTextColor(Color.WHITE)
         setBackgroundColor(Color.TRANSPARENT)
         isClickable = true
-        includeFontPadding = true
+        isFocusable = false
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        updateAppearance()
+        lastAnimationTime = System.currentTimeMillis()
         handler.post(walkRunnable)
     }
 
     override fun onDetachedFromWindow() {
         handler.removeCallbacksAndMessages(null)
         super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        PetSprite.draw(canvas, animationFrame, behavior.state, behavior.direction)
     }
 
     private fun movePet() {
@@ -65,8 +73,6 @@ class PetView(context: Context) : AppCompatTextView(context) {
             screenHeight = screenHeight
         )
 
-        updateAppearance()
-
         if (position.x != params.x || position.y != params.y) {
             params.x = position.x
             params.y = position.y
@@ -74,24 +80,43 @@ class PetView(context: Context) : AppCompatTextView(context) {
         }
     }
 
-    private fun updateAppearance() {
-        text = when (behavior.state) {
-            PetBehavior.State.WALKING -> originalPet
-            PetBehavior.State.IDLE -> "😺"
-            PetBehavior.State.FALLING -> "🙀"
-            PetBehavior.State.LANDING -> "😵"
-            PetBehavior.State.HELD -> originalPet
+    private fun updateSpriteFrame() {
+        val now = System.currentTimeMillis()
+        val stateChanged = behavior.state != lastState
+        val directionChanged = behavior.direction != lastDirection
+
+        if (stateChanged || directionChanged) {
+            animationFrame = 0
+            lastAnimationTime = now
+            lastState = behavior.state
+            lastDirection = behavior.direction
+            return
         }
-        scaleX = if (behavior.direction < 0) -1f else 1f
+
+        val frameDuration = when (behavior.state) {
+            PetBehavior.State.WALKING -> 95L
+            PetBehavior.State.IDLE -> 130L
+            PetBehavior.State.FALLING -> 75L
+            PetBehavior.State.LANDING -> 70L
+            PetBehavior.State.HELD -> 160L
+        }
+
+        if (now - lastAnimationTime >= frameDuration) {
+            val elapsedFrames = ((now - lastAnimationTime) / frameDuration).toInt().coerceAtMost(3)
+            animationFrame = (animationFrame + elapsedFrames) % 4
+            lastAnimationTime = now
+        }
     }
 
     private fun reactToTap() {
         behavior.reverse()
-        updateAppearance()
+        animationFrame = 0
+        invalidate()
         handler.postDelayed({
             if (!isAttachedToWindow) return@postDelayed
             behavior.finishReverse()
-            updateAppearance()
+            animationFrame = 0
+            invalidate()
         }, 220L)
     }
 
@@ -122,7 +147,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 if (!dragging && (abs(dx) > 8 || abs(dy) > 8)) {
                     dragging = true
                     behavior.setHeld()
-                    updateAppearance()
+                    animationFrame = 0
+                    invalidate()
                 }
 
                 if (dragging) {
@@ -138,7 +164,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
                     reactToTap()
                 } else {
                     behavior.startFalling()
-                    updateAppearance()
+                    animationFrame = 0
+                    invalidate()
                 }
                 dragging = false
                 return true
@@ -147,7 +174,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
             MotionEvent.ACTION_CANCEL -> {
                 if (dragging) {
                     behavior.startFalling()
-                    updateAppearance()
+                    animationFrame = 0
+                    invalidate()
                 }
                 dragging = false
                 return true
