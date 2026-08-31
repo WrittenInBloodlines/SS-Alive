@@ -44,17 +44,22 @@ class PetBehavior(
         }
 
         if (state == State.HELD) {
-            return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
+            return Position(
+                currentX.coerceIn(0, maxX),
+                currentY.coerceIn(0, maxY)
+            )
         }
 
         var x = currentX
         var y = currentY
+        val step = speedPxPerTick.coerceAtLeast(1)
 
         when (routeSegment) {
             0 -> {
-                // Bottom edge.
-                x += speedPxPerTick * direction
+                // Bottom edge: direction + = right, direction - = left.
                 y = maxY
+                x += step * direction
+
                 if (direction > 0 && x >= maxX) {
                     x = maxX
                     routeSegment = 1
@@ -65,22 +70,24 @@ class PetBehavior(
             }
 
             1 -> {
-                // Right edge.
-                y += speedPxPerTick * direction
+                // Right edge: direction + = up, direction - = down.
                 x = maxX
-                if (direction > 0 && y >= maxY) {
-                    y = maxY
-                    routeSegment = 0
-                } else if (direction < 0 && y <= 0) {
+                y -= step * direction
+
+                if (direction > 0 && y <= 0) {
                     y = 0
                     routeSegment = 2
+                } else if (direction < 0 && y >= maxY) {
+                    y = maxY
+                    routeSegment = 0
                 }
             }
 
             2 -> {
-                // Top edge.
-                x -= speedPxPerTick * direction
+                // Top edge: direction + = left, direction - = right.
                 y = 0
+                x -= step * direction
+
                 if (direction > 0 && x <= 0) {
                     x = 0
                     routeSegment = 3
@@ -91,20 +98,24 @@ class PetBehavior(
             }
 
             3 -> {
-                // Left edge.
-                y -= speedPxPerTick * direction
+                // Left edge: direction + = down, direction - = up.
                 x = 0
-                if (direction > 0 && y <= 0) {
-                    y = 0
-                    routeSegment = 2
-                } else if (direction < 0 && y >= maxY) {
+                y += step * direction
+
+                if (direction > 0 && y >= maxY) {
                     y = maxY
                     routeSegment = 0
+                } else if (direction < 0 && y <= 0) {
+                    y = 0
+                    routeSegment = 2
                 }
             }
         }
 
-        return Position(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
+        return Position(
+            x.coerceIn(0, maxX),
+            y.coerceIn(0, maxY)
+        )
     }
 
     fun startFalling() {
