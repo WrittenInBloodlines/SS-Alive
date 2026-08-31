@@ -49,10 +49,20 @@ class PetView(context: Context) : AppCompatTextView(context) {
         val params = layoutParams as? WindowManager.LayoutParams ?: return
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val screenWidth = resources.displayMetrics.widthPixels
-        val nextX = behavior.step(params.x, width.coerceAtLeast(params.width), screenWidth)
+        val screenHeight = resources.displayMetrics.heightPixels
 
-        if (nextX != params.x) {
-            params.x = nextX
+        val position = behavior.step(
+            currentX = params.x,
+            currentY = params.y,
+            petWidth = width.coerceAtLeast(params.width),
+            petHeight = height.coerceAtLeast(params.height),
+            screenWidth = screenWidth,
+            screenHeight = screenHeight
+        )
+
+        if (position.x != params.x || position.y != params.y) {
+            params.x = position.x
+            params.y = position.y
             windowManager.updateViewLayout(this, params)
         }
     }
@@ -77,8 +87,10 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 startX = params.x
                 startY = params.y
                 dragging = false
+                behavior.setHeld()
                 return true
             }
+
             MotionEvent.ACTION_MOVE -> {
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
@@ -92,12 +104,20 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 }
                 return true
             }
+
             MotionEvent.ACTION_UP -> {
-                if (!dragging) reactToTap()
+                if (!dragging) {
+                    reactToTap()
+                    behavior.state = PetBehavior.State.WALKING
+                } else {
+                    behavior.startFalling()
+                }
                 dragging = false
                 return true
             }
+
             MotionEvent.ACTION_CANCEL -> {
+                if (dragging) behavior.startFalling()
                 dragging = false
                 return true
             }
