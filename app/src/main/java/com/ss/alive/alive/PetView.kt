@@ -73,7 +73,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
         handler.postDelayed({
             if (!isAttachedToWindow) return@postDelayed
             text = originalPet
-        }, 500L)
+            behavior.finishReverse()
+        }, 220L)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -108,7 +109,6 @@ class PetView(context: Context) : AppCompatTextView(context) {
             MotionEvent.ACTION_UP -> {
                 if (!dragging) {
                     reactToTap()
-                    behavior.resumeWalking()
                 } else {
                     behavior.startFalling()
                 }
