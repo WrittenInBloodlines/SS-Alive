@@ -60,6 +60,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
             screenHeight = screenHeight
         )
 
+        updateAppearance()
+
         if (position.x != params.x || position.y != params.y) {
             params.x = position.x
             params.y = position.y
@@ -67,9 +69,16 @@ class PetView(context: Context) : AppCompatTextView(context) {
         }
     }
 
+    private fun updateAppearance() {
+        text = when (behavior.state) {
+            PetBehavior.State.WALKING -> originalPet
+            PetBehavior.State.IDLE -> "😺"
+            PetBehavior.State.FALLING -> "🙀"
+            PetBehavior.State.HELD -> originalPet
+        }
+    }
+
     private fun reactToTap() {
-        // A tap must reverse while the pet is still WALKING.
-        // HELD is only entered once the finger actually starts dragging.
         behavior.reverse()
         text = "😺"
         handler.postDelayed({
@@ -100,6 +109,7 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 if (!dragging && (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8)) {
                     dragging = true
                     behavior.setHeld()
+                    updateAppearance()
                 }
 
                 if (dragging) {
@@ -115,13 +125,17 @@ class PetView(context: Context) : AppCompatTextView(context) {
                     reactToTap()
                 } else {
                     behavior.startFalling()
+                    updateAppearance()
                 }
                 dragging = false
                 return true
             }
 
             MotionEvent.ACTION_CANCEL -> {
-                if (dragging) behavior.startFalling()
+                if (dragging) {
+                    behavior.startFalling()
+                    updateAppearance()
+                }
                 dragging = false
                 return true
             }
