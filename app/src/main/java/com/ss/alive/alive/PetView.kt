@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.appcompat.widget.AppCompatTextView
+import kotlin.math.abs
 
 class PetView(context: Context) : AppCompatTextView(context) {
     private var downX = 0f
@@ -33,10 +34,12 @@ class PetView(context: Context) : AppCompatTextView(context) {
         setTextColor(Color.WHITE)
         setBackgroundColor(Color.TRANSPARENT)
         isClickable = true
+        includeFontPadding = true
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        updateAppearance()
         handler.post(walkRunnable)
     }
 
@@ -50,12 +53,14 @@ class PetView(context: Context) : AppCompatTextView(context) {
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val screenWidth = resources.displayMetrics.widthPixels
         val screenHeight = resources.displayMetrics.heightPixels
+        val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
+        val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
 
         val position = behavior.step(
             currentX = params.x,
             currentY = params.y,
-            petWidth = width.coerceAtLeast(params.width),
-            petHeight = height.coerceAtLeast(params.height),
+            petWidth = petWidth,
+            petHeight = petHeight,
             screenWidth = screenWidth,
             screenHeight = screenHeight
         )
@@ -74,23 +79,31 @@ class PetView(context: Context) : AppCompatTextView(context) {
             PetBehavior.State.WALKING -> originalPet
             PetBehavior.State.IDLE -> "😺"
             PetBehavior.State.FALLING -> "🙀"
+            PetBehavior.State.LANDING -> "😵"
             PetBehavior.State.HELD -> originalPet
         }
+        scaleX = if (behavior.direction < 0) -1f else 1f
     }
 
     private fun reactToTap() {
         behavior.reverse()
-        text = "😺"
+        updateAppearance()
         handler.postDelayed({
             if (!isAttachedToWindow) return@postDelayed
-            text = originalPet
             behavior.finishReverse()
+            updateAppearance()
         }, 220L)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val params = layoutParams as? WindowManager.LayoutParams ?: return true
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
+        val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
+        val maxX = (screenWidth - petWidth).coerceAtLeast(0)
+        val maxY = (screenHeight - petHeight).coerceAtLeast(0)
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -106,15 +119,15 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
 
-                if (!dragging && (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8)) {
+                if (!dragging && (abs(dx) > 8 || abs(dy) > 8)) {
                     dragging = true
                     behavior.setHeld()
                     updateAppearance()
                 }
 
                 if (dragging) {
-                    params.x = startX + dx.toInt()
-                    params.y = startY + dy.toInt()
+                    params.x = (startX + dx.toInt()).coerceIn(0, maxX)
+                    params.y = (startY + dy.toInt()).coerceIn(0, maxY)
                     windowManager.updateViewLayout(this, params)
                 }
                 return true
