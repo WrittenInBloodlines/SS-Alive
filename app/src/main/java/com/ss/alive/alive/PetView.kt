@@ -2,9 +2,10 @@ package com.ss.alive.alive
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
 import android.view.WindowManager
-import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
 
 class PetView(context: Context) : AppCompatTextView(context) {
@@ -14,13 +15,55 @@ class PetView(context: Context) : AppCompatTextView(context) {
     private var startY = 0
     private var dragging = false
 
+    private val handler = Handler(Looper.getMainLooper())
+    private val behavior = PetBehavior(speedPxPerTick = 4)
+    private var originalPet = "🐈"
+
+    private val walkRunnable = object : Runnable {
+        override fun run() {
+            if (!dragging) movePet()
+            handler.postDelayed(this, 30L)
+        }
+    }
+
     init {
-        text = "🐈"
+        text = originalPet
         textSize = 64f
         gravity = android.view.Gravity.CENTER
         setTextColor(Color.WHITE)
         setBackgroundColor(Color.TRANSPARENT)
         isClickable = true
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        handler.post(walkRunnable)
+    }
+
+    override fun onDetachedFromWindow() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDetachedFromWindow()
+    }
+
+    private fun movePet() {
+        val params = layoutParams as? WindowManager.LayoutParams ?: return
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val screenWidth = resources.displayMetrics.widthPixels
+        val nextX = behavior.step(params.x, width.coerceAtLeast(params.width), screenWidth)
+
+        if (nextX != params.x) {
+            params.x = nextX
+            windowManager.updateViewLayout(this, params)
+        }
+    }
+
+    private fun reactToTap() {
+        behavior.reverse()
+        text = "😺"
+        handler.postDelayed({
+            if (!isAttachedToWindow) return@postDelayed
+            text = originalPet
+        }, 500L)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -49,7 +92,13 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 }
                 return true
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_UP -> {
+                if (!dragging) reactToTap()
+                dragging = false
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                dragging = false
                 return true
             }
         }
