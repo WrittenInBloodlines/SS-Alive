@@ -52,51 +52,56 @@ class PetBehavior(
 
         when (routeSegment) {
             0 -> {
-                // Bottom edge: walk from left to right.
-                x += speedPxPerTick
+                // Bottom edge.
+                x += speedPxPerTick * direction
                 y = maxY
-                if (x >= maxX) {
+                if (direction > 0 && x >= maxX) {
                     x = maxX
                     routeSegment = 1
+                } else if (direction < 0 && x <= 0) {
+                    x = 0
+                    routeSegment = 3
                 }
             }
 
             1 -> {
-                // Right edge: walk upward.
-                y -= speedPxPerTick
+                // Right edge.
+                y += speedPxPerTick * direction
                 x = maxX
-                if (y <= 0) {
+                if (direction > 0 && y >= maxY) {
+                    y = maxY
+                    routeSegment = 0
+                } else if (direction < 0 && y <= 0) {
                     y = 0
                     routeSegment = 2
                 }
             }
 
             2 -> {
-                // Top edge: walk from right to left.
-                x -= speedPxPerTick
+                // Top edge.
+                x -= speedPxPerTick * direction
                 y = 0
-                if (x <= 0) {
+                if (direction > 0 && x <= 0) {
                     x = 0
                     routeSegment = 3
+                } else if (direction < 0 && x >= maxX) {
+                    x = maxX
+                    routeSegment = 1
                 }
             }
 
             3 -> {
-                // Left edge: walk downward back to the bottom.
-                y += speedPxPerTick
+                // Left edge.
+                y -= speedPxPerTick * direction
                 x = 0
-                if (y >= maxY) {
+                if (direction > 0 && y <= 0) {
+                    y = 0
+                    routeSegment = 2
+                } else if (direction < 0 && y >= maxY) {
                     y = maxY
                     routeSegment = 0
                 }
             }
-        }
-
-        direction = when (routeSegment) {
-            0 -> 1
-            1 -> 0
-            2 -> -1
-            else -> 0
         }
 
         return Position(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
@@ -119,7 +124,7 @@ class PetBehavior(
     }
 
     fun reverse() {
-        if (routeSegment == 0 || routeSegment == 2) {
+        if (state != State.FALLING && state != State.HELD) {
             direction *= -1
         }
     }
