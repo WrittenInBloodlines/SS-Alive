@@ -1,12 +1,14 @@
 package com.ss.alive.alive
 
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 
 /**
- * Small built-in pixel-style sprite renderer.
- * The frames are drawn independently so the prototype has a real animated
+ * Small built-in white cat sprite with black eyes/details.
+ * Frames are drawn independently so the prototype has a real animated
  * character without requiring an external image asset yet.
  */
 object PetSprite {
@@ -87,7 +89,8 @@ object PetSprite {
         tailSwing: Boolean,
         blink: Boolean = false
     ) {
-        // Tail
+        // White body, head, ears and tail so the sprite stays visible on dark screens.
+        paint.color = Color.WHITE
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 7f
         paint.strokeCap = Paint.Cap.ROUND
@@ -95,21 +98,17 @@ object PetSprite {
         canvas.drawLine(31f, 13f + bob, 42f, 4f + bob, paint)
         canvas.drawLine(42f, 4f + bob, 48f, tailEnd + bob, paint)
 
-        // Body
         paint.style = Paint.Style.FILL
         canvas.drawRoundRect(RectF(-32f, -10f + bob, 30f, 35f + bob), 17f, 17f, paint)
-
-        // Head
         canvas.drawRoundRect(RectF(-34f, -43f + bob, 32f, 15f + bob), 19f, 19f, paint)
 
-        // Ears
-        val leftEar = android.graphics.Path().apply {
+        val leftEar = Path().apply {
             moveTo(-28f, -37f + bob)
             lineTo(-25f, -55f + bob)
             lineTo(-11f, -42f + bob)
             close()
         }
-        val rightEar = android.graphics.Path().apply {
+        val rightEar = Path().apply {
             moveTo(10f, -42f + bob)
             lineTo(25f, -55f + bob)
             lineTo(29f, -34f + bob)
@@ -118,8 +117,8 @@ object PetSprite {
         canvas.drawPath(leftEar, paint)
         canvas.drawPath(rightEar, paint)
 
-        // Face
-        paint.color = android.graphics.Color.WHITE
+        // Black eyes and facial details for contrast against the white sprite.
+        paint.color = Color.BLACK
         if (blink) {
             paint.strokeWidth = 3f
             paint.style = Paint.Style.STROKE
@@ -130,15 +129,13 @@ object PetSprite {
             canvas.drawCircle(-13f, -19f + bob, 4f, paint)
             canvas.drawCircle(13f, -19f + bob, 4f, paint)
         }
-        paint.color = android.graphics.Color.BLACK
-        canvas.drawCircle(-13f, -19f + bob, 2f, paint)
-        canvas.drawCircle(13f, -19f + bob, 2f, paint)
         canvas.drawCircle(0f, -7f + bob, 3f, paint)
 
-        // Legs
+        // Black legs outline/detail.
         paint.strokeWidth = 8f
         paint.strokeCap = Paint.Cap.ROUND
         paint.style = Paint.Style.STROKE
+        paint.color = Color.BLACK
         canvas.drawLine(-20f, 28f + bob, -20f + legOffset, 45f + bob, paint)
         canvas.drawLine(-3f, 30f + bob, -3f - legOffset, 46f + bob, paint)
         canvas.drawLine(13f, 29f + bob, 13f + legOffset, 45f + bob, paint)
