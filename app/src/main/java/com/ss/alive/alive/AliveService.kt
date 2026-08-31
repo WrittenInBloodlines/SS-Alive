@@ -11,7 +11,6 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.ss.alive.R
 
@@ -33,9 +32,9 @@ class AliveService : Service() {
 
     private fun showPet() {
         if (!Settings.canDrawOverlays(this)) return
-
+        val profile = AliveRepository.active(this) ?: AliveRepository.createTemplate(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val view = PetView(this)
+        val view = PetView(this, profile)
         petView = view
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -43,7 +42,6 @@ class AliveService : Service() {
         } else {
             WindowManager.LayoutParams.TYPE_PHONE
         }
-
         val params = WindowManager.LayoutParams(
             150,
             150,
@@ -55,7 +53,6 @@ class AliveService : Service() {
             x = 180
             y = 500
         }
-
         view.layoutParams = params
         windowManager.addView(view, params)
     }
@@ -70,11 +67,7 @@ class AliveService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "S•S Alive",
-                NotificationManager.IMPORTANCE_LOW
-            )
+            val channel = NotificationChannel(CHANNEL_ID, "S•S Alive", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -82,7 +75,7 @@ class AliveService : Service() {
     private fun buildNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_menu_compass)
         .setContentTitle("S•S Alive")
-        .setContentText("Screen pet simulation is active")
+        .setContentText("Your Alive is active")
         .setOngoing(true)
         .build()
 
