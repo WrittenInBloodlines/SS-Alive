@@ -68,6 +68,8 @@ class PetView(context: Context) : AppCompatTextView(context) {
     }
 
     private fun reactToTap() {
+        // A tap must reverse while the pet is still WALKING.
+        // HELD is only entered once the finger actually starts dragging.
         behavior.reverse()
         text = "😺"
         handler.postDelayed({
@@ -88,16 +90,18 @@ class PetView(context: Context) : AppCompatTextView(context) {
                 startX = params.x
                 startY = params.y
                 dragging = false
-                behavior.setHeld()
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
+
                 if (!dragging && (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8)) {
                     dragging = true
+                    behavior.setHeld()
                 }
+
                 if (dragging) {
                     params.x = startX + dx.toInt()
                     params.y = startY + dy.toInt()
