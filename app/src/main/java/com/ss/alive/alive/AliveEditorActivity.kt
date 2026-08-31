@@ -12,24 +12,19 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 class AliveEditorActivity : AppCompatActivity() {
     private lateinit var profile: AliveProfile
     private val stateRows = mutableMapOf<String, LinearLayout>()
 
-    private val pickImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        uri ?: return@registerForActivityResult
-        val state = pendingState ?: return@registerForActivityResult
-        runCatching {
-            contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
-        profile.frames.getOrPut(state) { mutableListOf() }.add(uri.toString())
-        refreshState(state)
-        pendingState = null
+    private val pickImageFromFiles = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        addSelectedImage(uri)
+    }
+
+    private val pickImageFromGallery = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        addSelectedImage(uri)
     }
 
     private var pendingState: String? = null
@@ -126,7 +121,7 @@ class AliveEditorActivity : AppCompatActivity() {
             text = "+"
             setOnClickListener {
                 pendingState = state
-                pickImage.launch(arrayOf("image/png"))
+                showImageSourceDialog()
             }
         }
         row.addView(add)
@@ -141,6 +136,40 @@ class AliveEditorActivity : AppCompatActivity() {
             }
             row.addView(clear)
         }
+    }
+
+    private fun showImageSourceDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Choose image source")
+            .setItems(arrayOf("Choose from Gallery", "Choose from Files")) { _, which ->
+                when (which) {
+                    0 -> pickImageFromGallery.launch("image/png")
+                    1 -> pickImageFromFiles.launch(arrayOf("image/png"))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun addSelectedImage(uri: Uri?) {
+        if (uri == null) {
+            pendingState = null
+            return
+        }
+        val state = pendingState ?: return
+        if (uri.scheme != "content") {
+            pendingState = null
+            return
+        }
+        runCatching {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        profile.frames.getOrPut(state) { mutableListOf() }.add(uri.toString())
+        refreshState(state)
+        pendingState = null
     }
 
     private fun saveProfile(useAfterSave: Boolean = false) {
