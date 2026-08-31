@@ -10,7 +10,7 @@ import android.view.View
 import android.view.WindowManager
 import kotlin.math.abs
 
-class PetView(context: Context) : View(context) {
+class PetView(context: Context, profile: AliveProfile) : View(context) {
     private var downX = 0f
     private var downY = 0f
     private var startX = 0
@@ -19,12 +19,13 @@ class PetView(context: Context) : View(context) {
 
     private val handler = Handler(Looper.getMainLooper())
     private val behavior = PetBehavior(speedPxPerTick = 4)
+    private val customSprite = CustomPetSprite(context, profile)
     private var animationFrame = 0
     private var lastAnimationTime = 0L
     private var lastState = behavior.state
     private var lastDirection = behavior.direction
 
-    private val walkRunnable = object : Runnable {
+    private val animationRunnable = object : Runnable {
         override fun run() {
             if (!dragging) movePet()
             updateSpriteFrame()
@@ -43,7 +44,7 @@ class PetView(context: Context) : View(context) {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         lastAnimationTime = System.currentTimeMillis()
-        handler.post(walkRunnable)
+        handler.post(animationRunnable)
     }
 
     override fun onDetachedFromWindow() {
@@ -53,7 +54,7 @@ class PetView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        PetSprite.draw(canvas, animationFrame, behavior.state, behavior.direction)
+        customSprite.draw(canvas, behavior.state, animationFrame, behavior.direction)
     }
 
     private fun movePet() {
@@ -63,20 +64,11 @@ class PetView(context: Context) : View(context) {
         val screenHeight = resources.displayMetrics.heightPixels
         val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
         val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
-
-        val position = behavior.step(
-            currentX = params.x,
-            currentY = params.y,
-            petWidth = petWidth,
-            petHeight = petHeight,
-            screenWidth = screenWidth,
-            screenHeight = screenHeight
-        )
-
+        val position = behavior.step(params.x, params.y, petWidth, petHeight, screenWidth, screenHeight)
         if (position.x != params.x || position.y != params.y) {
             params.x = position.x
             params.y = position.y
-            windowManager.updateViewLayout(this, params)
+            runCatching { windowManager.updateViewLayout(this, params) }
         }
     }
 
@@ -84,7 +76,6 @@ class PetView(context: Context) : View(context) {
         val now = System.currentTimeMillis()
         val stateChanged = behavior.state != lastState
         val directionChanged = behavior.direction != lastDirection
-
         if (stateChanged || directionChanged) {
             animationFrame = 0
             lastAnimationTime = now
@@ -92,15 +83,16 @@ class PetView(context: Context) : View(context) {
             lastDirection = behavior.direction
             return
         }
-
         val frameDuration = when (behavior.state) {
+            PetBehavior.State.RUNNING -> 65L
             PetBehavior.State.WALKING -> 95L
             PetBehavior.State.IDLE -> 130L
             PetBehavior.State.FALLING -> 75L
             PetBehavior.State.LANDING -> 70L
             PetBehavior.State.HELD -> 160L
+            PetBehavior.State.SIT -> 180L
+            PetBehavior.State.JUMP -> 80L
         }
-
         if (now - lastAnimationTime >= frameDuration) {
             val elapsedFrames = ((now - lastAnimationTime) / frameDuration).toInt().coerceAtMost(3)
             animationFrame = (animationFrame + elapsedFrames) % 4
@@ -129,54 +121,40 @@ class PetView(context: Context) : View(context) {
         val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
         val maxX = (screenWidth - petWidth).coerceAtLeast(0)
         val maxY = (screenHeight - petHeight).coerceAtLeast(0)
-
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = event.rawX
-                downY = event.rawY
-                startX = params.x
-                startY = params.y
+                downX = event.rawX; downY = event.rawY
+                startX = params.x; startY = params.y
                 dragging = false
                 return true
             }
-
             MotionEvent.ACTION_MOVE -> {
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
-
                 if (!dragging && (abs(dx) > 8 || abs(dy) > 8)) {
                     dragging = true
                     behavior.setHeld()
                     animationFrame = 0
                     invalidate()
                 }
-
                 if (dragging) {
                     params.x = (startX + dx.toInt()).coerceIn(0, maxX)
                     params.y = (startY + dy.toInt()).coerceIn(0, maxY)
-                    windowManager.updateViewLayout(this, params)
+                    runCatching { windowManager.updateViewLayout(this, params) }
                 }
                 return true
             }
-
             MotionEvent.ACTION_UP -> {
-                if (!dragging) {
-                    reactToTap()
-                } else {
-                    behavior.startFalling()
-                    animationFrame = 0
-                    invalidate()
-                }
+                if (!dragging) reactToTap() else behavior.startFalling()
+                animationFrame = 0
+                invalidate()
                 dragging = false
                 return true
             }
-
             MotionEvent.ACTION_CANCEL -> {
-                if (dragging) {
-                    behavior.startFalling()
-                    animationFrame = 0
-                    invalidate()
-                }
+                if (dragging) behavior.startFalling()
+                animationFrame = 0
+                invalidate()
                 dragging = false
                 return true
             }
