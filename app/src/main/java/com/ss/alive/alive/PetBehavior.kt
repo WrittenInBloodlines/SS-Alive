@@ -16,6 +16,7 @@ class PetBehavior(
         private set
 
     private var velocityY = 0f
+    private var routeSegment = 0
 
     fun step(
         currentX: Int,
@@ -36,6 +37,7 @@ class PetBehavior(
                 nextY = maxY
                 velocityY = 0f
                 state = State.WALKING
+                routeSegment = 0
             }
 
             return Position(currentX.coerceIn(0, maxX), nextY)
@@ -45,24 +47,59 @@ class PetBehavior(
             return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
         }
 
-        var nextX = currentX + (speedPxPerTick * direction)
-        var nextY = currentY
+        var x = currentX
+        var y = currentY
 
-        if (nextX <= 0) {
-            nextX = 0
-            direction = 1
-        } else if (nextX >= maxX) {
-            nextX = maxX
-            direction = -1
+        when (routeSegment) {
+            0 -> {
+                // Bottom edge: walk from left to right.
+                x += speedPxPerTick
+                y = maxY
+                if (x >= maxX) {
+                    x = maxX
+                    routeSegment = 1
+                }
+            }
+
+            1 -> {
+                // Right edge: walk upward.
+                y -= speedPxPerTick
+                x = maxX
+                if (y <= 0) {
+                    y = 0
+                    routeSegment = 2
+                }
+            }
+
+            2 -> {
+                // Top edge: walk from right to left.
+                x -= speedPxPerTick
+                y = 0
+                if (x <= 0) {
+                    x = 0
+                    routeSegment = 3
+                }
+            }
+
+            3 -> {
+                // Left edge: walk downward back to the bottom.
+                y += speedPxPerTick
+                x = 0
+                if (y >= maxY) {
+                    y = maxY
+                    routeSegment = 0
+                }
+            }
         }
 
-        nextY = when {
-            currentY <= 0 -> 0
-            currentY >= maxY -> maxY
-            else -> currentY
+        direction = when (routeSegment) {
+            0 -> 1
+            1 -> 0
+            2 -> -1
+            else -> 0
         }
 
-        return Position(nextX, nextY)
+        return Position(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
     }
 
     fun startFalling() {
@@ -77,8 +114,14 @@ class PetBehavior(
         velocityY = 0f
     }
 
+    fun resumeWalking() {
+        state = State.WALKING
+    }
+
     fun reverse() {
-        direction *= -1
+        if (routeSegment == 0 || routeSegment == 2) {
+            direction *= -1
+        }
     }
 
     data class Position(val x: Int, val y: Int)
