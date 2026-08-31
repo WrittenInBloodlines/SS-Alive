@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 32f
         }
         val subtitle = TextView(this).apply {
-            text = "Your characters are alive.\n\nPrototype 0.1: one test pet, overlay, dragging and ghost mode."
+            text = "Your characters are alive.\n\nPrototype 0.2: one autonomous pet, screen boundaries, dragging and tap reaction."
             textSize = 17f
             setPadding(0, 24, 0, 32)
         }
