@@ -108,7 +108,7 @@ class PetView(context: Context) : AppCompatTextView(context) {
             MotionEvent.ACTION_UP -> {
                 if (!dragging) {
                     reactToTap()
-                    behavior.state = PetBehavior.State.WALKING
+                    behavior.resumeWalking()
                 } else {
                     behavior.startFalling()
                 }
