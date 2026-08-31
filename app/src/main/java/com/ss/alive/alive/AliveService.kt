@@ -22,16 +22,17 @@ class AliveService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        showPet()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (petView == null && Settings.canDrawOverlays(this)) showPet()
+        if (!Settings.canDrawOverlays(this)) return START_STICKY
+        // Rebuild the overlay when the user selects a different Alive.
+        removePet()
+        showPet()
         return START_STICKY
     }
 
     private fun showPet() {
-        if (!Settings.canDrawOverlays(this)) return
         val profile = AliveRepository.active(this) ?: AliveRepository.createTemplate(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val view = PetView(this, profile)
@@ -57,9 +58,13 @@ class AliveService : Service() {
         windowManager.addView(view, params)
     }
 
-    override fun onDestroy() {
+    private fun removePet() {
         petView?.let { runCatching { windowManager.removeView(it) } }
         petView = null
+    }
+
+    override fun onDestroy() {
+        removePet()
         super.onDestroy()
     }
 
