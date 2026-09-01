@@ -8,9 +8,15 @@
         android:label="S•S Alive"
         android:supportsRtl="true"
         android:theme="@style/Theme.SSAlive">
+
+        <activity
+            android:name=".alive.TemplatesActivity"
+            android:exported="false" />
+
         <activity
             android:name=".alive.AliveEditorActivity"
             android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
