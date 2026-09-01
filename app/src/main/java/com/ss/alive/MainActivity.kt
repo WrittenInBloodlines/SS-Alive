@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.ss.alive.account.AccountBridge
 import com.ss.alive.alive.AliveEditorActivity
 import com.ss.alive.alive.AliveRepository
 import com.ss.alive.alive.AliveService
@@ -21,6 +22,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AccountBridge.request(this)
         showHome()
     }
 
