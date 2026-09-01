@@ -50,6 +50,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val duration = when (behavior.state) {
             PetBehavior.State.RUNNING -> 65L
             PetBehavior.State.WALKING -> 90L
+            PetBehavior.State.CLIMBING -> 85L
             PetBehavior.State.IDLE -> 150L
             PetBehavior.State.FALLING -> 75L
             PetBehavior.State.LANDING -> 70L
