@@ -15,14 +15,14 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
 
     fun frameCount(state: PetBehavior.State): Int {
         val frames = loadFrames(stateKey(state))
-        return if (frames.isNotEmpty()) frames.size else PetSprite.frameCount(state)
+        return if (frames.isNotEmpty()) frames.size else BuiltInTemplateSprite.frameCount(profile.templateKind, state)
     }
 
     fun draw(canvas: Canvas, state: PetBehavior.State, frame: Int, direction: Int) {
         val key = stateKey(state)
         val bitmaps = loadFrames(key)
         if (bitmaps.isEmpty()) {
-            PetSprite.draw(canvas, frame, state, direction)
+            BuiltInTemplateSprite.draw(profile.templateKind, canvas, frame, state, direction)
             return
         }
         val bitmap = bitmaps[frame % bitmaps.size]
