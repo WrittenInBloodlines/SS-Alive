@@ -41,6 +41,7 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
 
     private fun stateKey(state: PetBehavior.State): String = when (state) {
         PetBehavior.State.WALKING -> AliveProfile.WALK
+        PetBehavior.State.CLIMBING -> AliveProfile.WALK
         PetBehavior.State.IDLE -> AliveProfile.IDLE
         PetBehavior.State.RUNNING -> AliveProfile.RUN
         PetBehavior.State.SIT -> AliveProfile.SIT
