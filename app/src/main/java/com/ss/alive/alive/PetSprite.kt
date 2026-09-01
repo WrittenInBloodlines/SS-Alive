@@ -19,7 +19,8 @@ object PetSprite {
 
     fun frameCount(state: PetBehavior.State): Int = when (state) {
         PetBehavior.State.IDLE -> 12
-        PetBehavior.State.WALKING -> 10
+        PetBehavior.State.WALKING -> 12
+        PetBehavior.State.CLIMBING -> 10
         PetBehavior.State.RUNNING -> 8
         PetBehavior.State.SIT -> 7
         PetBehavior.State.JUMP -> 8
@@ -37,6 +38,7 @@ object PetSprite {
         when (state) {
             PetBehavior.State.IDLE -> idle(canvas, frame)
             PetBehavior.State.WALKING -> walk(canvas, frame)
+            PetBehavior.State.CLIMBING -> climb(canvas, frame)
             PetBehavior.State.RUNNING -> run(canvas, frame)
             PetBehavior.State.SIT -> sit(canvas, frame)
             PetBehavior.State.JUMP -> jump(canvas, frame)
@@ -56,11 +58,22 @@ object PetSprite {
     }
 
     private fun walk(c: Canvas, frame: Int) {
-        val f = frame.mod(10)
-        val bob = floatArrayOf(0.8f,0f,-1.1f,-1.7f,-0.5f,0.8f,0f,-1.1f,-1.7f,-0.5f)[f]
-        val pitch = floatArrayOf(1f,0.4f,-0.3f,-0.7f,-0.2f,1f,0.4f,-0.3f,-0.7f,-0.2f)[f]
-        val tail = intArrayOf(0,0,1,1,1,0,0,1,1,1)[f]
+        val f = frame.mod(12)
+        val bob = floatArrayOf(0.7f,0f,-0.9f,-1.5f,-1.9f,-1.3f,-0.4f,0.4f,0.8f,0.4f,-0.1f,0.3f)[f]
+        val pitch = floatArrayOf(0.7f,0.4f,0f,-0.4f,-0.7f,-0.5f,-0.1f,0.3f,0.6f,0.4f,0f,0.3f)[f]
+        val tail = intArrayOf(1,1,0,0,3,3,2,2,1,1,0,0)[f]
         drawCat(c,bob,pitch,tail,0,1.14f,false,f)
+    }
+
+    private fun climb(c: Canvas, frame: Int) {
+        val f = frame.mod(10)
+        val reach = floatArrayOf(0f,3f,6f,8f,6f,2f,-2f,-5f,-7f,-3f)[f]
+        val sway = floatArrayOf(-1f,0f,1f,2f,1f,0f,-1f,-2f,-1f,0f)[f]
+        c.save()
+        c.rotate(-90f)
+        c.translate(reach * 0.25f, sway)
+        drawCat(c,0f,0f,f % 4,0,1.10f,false,60 + f)
+        c.restore()
     }
 
     private fun run(c: Canvas, frame: Int) {
@@ -115,12 +128,14 @@ object PetSprite {
     private fun drawCat(c: Canvas,bob: Float,bodyPitch: Float,tailPose: Int,facePose: Int,scale: Float,sitting: Boolean,gait: Int) {
         c.save(); c.scale(scale,scale); c.rotate(bodyPitch,0f,18f+bob)
         val tailPath = Path().apply {
-            moveTo(27f,13f+bob)
+            // Tail stays behind the cat: default/right-facing cat has its tail on the left.
+            // Canvas mirroring automatically moves it behind the cat when facing left.
+            moveTo(-29f,13f+bob)
             when (tailPose.mod(4)) {
-                0 -> cubicTo(34f,10f+bob,40f,5f+bob,40f,-1f+bob)
-                1 -> cubicTo(35f,13f+bob,42f,10f+bob,42f,3f+bob)
-                2 -> cubicTo(35f,16f+bob,42f,19f+bob,39f,24f+bob)
-                else -> cubicTo(35f,12f+bob,42f,15f+bob,41f,20f+bob)
+                0 -> cubicTo(-37f,10f+bob,-43f,4f+bob,-42f,-3f+bob)
+                1 -> cubicTo(-38f,13f+bob,-45f,9f+bob,-45f,2f+bob)
+                2 -> cubicTo(-37f,16f+bob,-45f,19f+bob,-42f,25f+bob)
+                else -> cubicTo(-38f,12f+bob,-45f,15f+bob,-44f,21f+bob)
             }
         }
         line.color=Color.rgb(45,45,50); line.strokeWidth=8f; c.drawPath(tailPath,line)
@@ -173,37 +188,46 @@ object PetSprite {
     }
 
     private fun drawLegs(c: Canvas,bob: Float,sitting: Boolean,gait: Int) {
-        val xs=floatArrayOf(-23f,-8f,9f,24f)
+        val hips=floatArrayOf(-23f,-8f,9f,24f)
         val topY=25f+bob
         val baseY=if(sitting)42f+bob else 46f+bob
-        val offsets: FloatArray=when {
+        val swing: FloatArray=when {
             sitting -> floatArrayOf(0f,0f,0f,0f)
+            gait>=60 -> {
+                val f=(gait-60).mod(10)
+                val v=floatArrayOf(7f,11f,8f,3f,-3f,-8f,-11f,-7f,-2f,3f)[f]
+                floatArrayOf(v,-v*.75f,-v,v*.75f)
+            }
             gait>=20 -> {
                 val f=(gait-20).mod(8)
-                val wave=floatArrayOf(11f,-10f,9f,-11f,11f,-10f,9f,-11f)[f]
-                floatArrayOf(-wave*.8f,wave,-wave,wave*.8f)
+                val v=floatArrayOf(12f,7f,-2f,-10f,-12f,-7f,2f,10f)[f]
+                floatArrayOf(v,-v*.72f,-v,v*.72f)
             }
             gait>=30 -> {
                 val f=(gait-30).mod(8)
                 val v=floatArrayOf(7f,-6f,6f,-7f,7f,-6f,6f,-7f)[f]
                 floatArrayOf(v,-v,-v,v)
             }
-            gait>=40 -> {
-                val f=(gait-40).mod(12)
-                val v=floatArrayOf(0f,4f,-6f,8f,-9f,7f,-6f,5f,-4f,3f,-2f,0f)[f]
-                floatArrayOf(v,-v,v*.7f,-v*.7f)
-            }
             else -> {
-                val f=gait.mod(10)
-                val front=floatArrayOf(9f,6f,1f,-5f,-8f,-4f,1f,6f,8f,4f)[f]
-                floatArrayOf(-front,front,front,-front)
+                val f=gait.mod(12)
+                val v=floatArrayOf(9f,12f,9f,4f,-2f,-8f,-11f,-8f,-3f,3f,7f,8f)[f]
+                floatArrayOf(v,-v*.65f,-v,v*.65f)
             }
         }
         for(i in 0..3) {
-            val x=xs[i]; val off=offsets[i]; val footX=x+off
-            val footY=if(!sitting && gait<20) baseY-(abs(off)*.22f) else baseY
-            line.color=Color.rgb(45,45,50); line.strokeWidth=8f; c.drawLine(x,topY,footX,footY,line)
-            line.color=Color.WHITE; line.strokeWidth=5.2f; c.drawLine(x,topY,footX,footY,line)
+            val x=hips[i]
+            val s=swing[i]
+            val kneeX=x+s*0.48f
+            val kneeY=topY+9f-abs(s)*0.12f
+            val footX=x+s
+            val footY=baseY-abs(s)*0.18f
+            line.color=Color.rgb(45,45,50); line.strokeWidth=8f
+            c.drawLine(x,topY,kneeX,kneeY,line)
+            c.drawLine(kneeX,kneeY,footX,footY,line)
+            line.color=Color.WHITE; line.strokeWidth=5.2f
+            c.drawLine(x,topY,kneeX,kneeY,line)
+            c.drawLine(kneeX,kneeY,footX,footY,line)
+            c.drawLine(footX-2.5f,footY,footX+3.5f,footY,line)
         }
     }
 
