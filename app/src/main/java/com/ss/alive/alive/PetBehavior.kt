@@ -28,7 +28,7 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
                 nextY = maxY
                 velocityY = 0f
                 state = State.LANDING
-                landingTicksRemaining = 10
+                landingTicksRemaining = 12
                 routeSegment = 0
             }
             return Position(currentX.coerceIn(0, maxX), nextY)
@@ -70,14 +70,21 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
 
     fun stepToward(currentX: Int, currentY: Int, targetX: Int, targetY: Int, run: Boolean): Position {
         if (state == State.FALLING || state == State.JUMP || state == State.LANDING || state == State.HELD || state == State.SIT) return Position(currentX, currentY)
+
+        // The first Alex/Ciro prototype is a grounded screen-edge world. Following Alex
+        // should move Ciro horizontally instead of making him float diagonally through the screen.
         val dx = targetX - currentX
-        val dy = targetY - currentY
-        if (abs(dx) > 2) direction = if (dx > 0) 1 else -1
-        val distance = sqrt((dx * dx + dy * dy).toDouble()).coerceAtLeast(1.0)
-        val speed = if (run) speedPxPerTick * 2.8f else speedPxPerTick * 1.35f
-        val ratio = (speed / distance).coerceAtMost(1.0)
+        if (abs(dx) <= 34) {
+            state = State.WALKING
+            return Position(currentX, currentY)
+        }
+
+        direction = if (dx > 0) 1 else -1
+        val distance = abs(dx).toFloat().coerceAtLeast(1f)
+        val speed = if (run) speedPxPerTick * 2.55f else speedPxPerTick * 1.20f
+        val move = speed.coerceAtMost(distance)
         state = if (run) State.RUNNING else State.WALKING
-        return Position((currentX + dx * ratio).toInt(), (currentY + dy * ratio).toInt())
+        return Position((currentX + direction * move).toInt(), currentY)
     }
 
     fun setClimbing() { state = State.CLIMBING }
