@@ -15,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -155,7 +156,7 @@ class AliveEditorActivity : AppCompatActivity() {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                     profile.setSpeedFps(state, p + 1)
                     speedLabel.text = "Speed: ${profile.speedFps(state)} FPS"
-                    if (preview.currentState == state) preview.restart(profile.frameUris(state), profile.speedFps(state))
+                    if (preview.currentState == state) preview.restart(profile.frameUris(state), profile.speedFps(state), state)
                 }
                 override fun onStartTrackingTouch(s: SeekBar?) = Unit
                 override fun onStopTrackingTouch(s: SeekBar?) = Unit
