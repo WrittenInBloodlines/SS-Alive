@@ -8,6 +8,8 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -17,11 +19,14 @@ import com.ss.alive.R
 class AliveService : Service() {
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
+    private val interactionHandler = Handler(Looper.getMainLooper())
+    private val interactionRunnable = object : Runnable { override fun run() { checkInteractions(); interactionHandler.postDelayed(this, 700L) } }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        interactionHandler.post(interactionRunnable)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,9 +68,10 @@ class AliveService : Service() {
         windowManager.addView(view, params)
     }
 
-    private fun removePets() { petViews.forEach { runCatching { windowManager.removeView(it) } }; petViews.clear() }
+    private fun checkInteractions() { for (i in petViews.indices) for (j in i + 1 until petViews.size) { val a=petViews[i].layoutParams as? WindowManager.LayoutParams ?: continue; val b=petViews[j].layoutParams as? WindowManager.LayoutParams ?: continue; val dx=a.x-b.x; val dy=a.y-b.y; if (dx*dx + dy*dy < 190*190) { petViews[i].startInteraction(); petViews[j].startInteraction() } } }
+    private fun removePets() { if (!::windowManager.isInitialized) return; petViews.forEach { runCatching { windowManager.removeView(it) } }; petViews.clear() }
 
-    override fun onDestroy() { removePets(); super.onDestroy() }
+    override fun onDestroy() { interactionHandler.removeCallbacksAndMessages(null); removePets(); super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
