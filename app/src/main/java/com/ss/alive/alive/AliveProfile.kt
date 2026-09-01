@@ -3,7 +3,6 @@ package com.ss.alive.alive
 import android.content.Context
 import org.json.JSONObject
 
-/** Stores one user-created Alive and the image frames assigned to each state. */
 data class AliveProfile(
     val id: String,
     var name: String,
@@ -21,7 +20,6 @@ data class AliveProfile(
         const val LANDING = "LANDING"
         const val HELD = "HELD"
         const val CLIMB = "CLIMB"
-
         val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB)
 
         fun empty(id: String, name: String): AliveProfile = AliveProfile(id, name)
@@ -29,8 +27,7 @@ data class AliveProfile(
         fun fromJson(json: String): AliveProfile {
             val root = JSONObject(json)
             val profile = AliveProfile(
-                id = root.getString("id"),
-                name = root.getString("name"),
+                id = root.getString("id"), name = root.getString("name"),
                 isTemplate = root.optBoolean("template", false),
                 sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200)
             )
@@ -46,16 +43,13 @@ data class AliveProfile(
     }
 
     fun toJson(): String {
-        val root = JSONObject()
-        root.put("id", id)
-        root.put("name", name)
-        root.put("template", isTemplate)
-        root.put("sizePercent", sizePercent.coerceIn(25, 200))
+        val root = JSONObject().apply {
+            put("id", id); put("name", name); put("template", isTemplate)
+            put("sizePercent", sizePercent.coerceIn(25, 200))
+        }
         val frameObject = JSONObject()
         frames.forEach { (state, uris) ->
-            val array = org.json.JSONArray()
-            uris.forEach(array::put)
-            frameObject.put(state, array)
+            val array = org.json.JSONArray(); uris.forEach(array::put); frameObject.put(state, array)
         }
         root.put("frames", frameObject)
         return root.toString()
@@ -73,41 +67,37 @@ object AliveRepository {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val ids = prefs.getStringSet(KEY_IDS, emptySet()).orEmpty().toMutableSet()
         ids += profile.id
-        prefs.edit()
-            .putStringSet(KEY_IDS, ids)
-            .putString("profile_${profile.id}", profile.toJson())
-            .apply()
+        prefs.edit().putStringSet(KEY_IDS, ids)
+            .putString("profile_${profile.id}", profile.toJson()).apply()
     }
 
-    fun get(context: Context, id: String): AliveProfile? {
-        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString("profile_$id", null) ?: return null
-        return runCatching { AliveProfile.fromJson(json) }.getOrNull()
-    }
+    fun get(context: Context, id: String): AliveProfile? = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getString("profile_$id", null)?.let { runCatching { AliveProfile.fromJson(it) }.getOrNull() }
 
-    fun all(context: Context): List<AliveProfile> {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return prefs.getStringSet(KEY_IDS, emptySet()).orEmpty()
-            .mapNotNull { get(context, it) }
-            .sortedBy { it.name.lowercase() }
-    }
+    fun all(context: Context): List<AliveProfile> = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getStringSet(KEY_IDS, emptySet()).orEmpty().mapNotNull { get(context, it) }
+        .sortedBy { it.name.lowercase() }
 
     fun setActive(context: Context, profile: AliveProfile) {
         save(context, profile)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_ACTIVE, profile.id).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_ACTIVE, profile.id).apply()
     }
 
-    fun active(context: Context): AliveProfile? {
-        val id = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_ACTIVE, null) ?: return null
-        return get(context, id)
+    fun active(context: Context): AliveProfile? = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getString(KEY_ACTIVE, null)?.let { get(context, it) }
+
+    fun delete(context: Context, id: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val ids = prefs.getStringSet(KEY_IDS, emptySet()).orEmpty().toMutableSet()
+        ids.remove(id)
+        val active = prefs.getString(KEY_ACTIVE, null)
+        val editor = prefs.edit().remove("profile_$id").putStringSet(KEY_IDS, ids)
+        if (active == id) editor.remove(KEY_ACTIVE)
+        editor.apply()
     }
 
     fun createTemplate(context: Context): AliveProfile {
         val profile = AliveProfile("template_cat", "Cat", isTemplate = true, sizePercent = 55)
-        save(context, profile)
-        setActive(context, profile)
-        return profile
+        save(context, profile); setActive(context, profile); return profile
     }
 }
