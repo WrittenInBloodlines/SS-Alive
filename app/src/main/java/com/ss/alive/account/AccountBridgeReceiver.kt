@@ -5,15 +5,22 @@ import android.content.Context
 import android.content.Intent
 
 class AccountBridgeReceiver : BroadcastReceiver() {
-
     override fun onReceive(context: Context, intent: Intent) {
+        val templateJson = intent.getStringExtra(EXTRA_TEMPLATE_JSON)
+        val templateError = intent.getStringExtra(EXTRA_TEMPLATE_ERROR)
+        if (templateJson != null || templateError != null) {
+            context.sendBroadcast(Intent(AccountBridge.TEMPLATE_RESULT_ACTION).apply {
+                `package` = context.packageName
+                putExtra(AccountBridge.EXTRA_TEMPLATE_JSON, templateJson)
+                putExtra(AccountBridge.EXTRA_TEMPLATE_ERROR, templateError)
+            })
+            return
+        }
+
         val error = intent.getStringExtra(EXTRA_ERROR)
         val uid = intent.getStringExtra(EXTRA_UID)
-
         if (error != null || uid.isNullOrBlank()) {
-            if (error == "NOT_SIGNED_IN") {
-                AliveAccountStore.clear(context)
-            }
+            if (error == "NOT_SIGNED_IN") AliveAccountStore.clear(context)
             return
         }
 
@@ -34,5 +41,7 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         const val EXTRA_DISPLAY_NAME = "com.ss.hub.account_bridge.DISPLAY_NAME"
         const val EXTRA_ROLE = "com.ss.hub.account_bridge.ROLE"
         const val EXTRA_ERROR = "com.ss.hub.account_bridge.ERROR"
+        const val EXTRA_TEMPLATE_JSON = "com.ss.hub.template_bridge.JSON"
+        const val EXTRA_TEMPLATE_ERROR = "com.ss.hub.template_bridge.ERROR"
     }
 }
