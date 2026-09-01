@@ -1,7 +1,6 @@
 package com.ss.alive.alive
 
 import android.content.Context
-import android.net.Uri
 import org.json.JSONObject
 
 /** Stores one user-created Alive and the image frames assigned to each state. */
@@ -9,6 +8,7 @@ data class AliveProfile(
     val id: String,
     var name: String,
     var isTemplate: Boolean = false,
+    var sizePercent: Int = 55,
     val frames: MutableMap<String, MutableList<String>> = mutableMapOf()
 ) {
     companion object {
@@ -20,8 +20,9 @@ data class AliveProfile(
         const val FALL = "FALL"
         const val LANDING = "LANDING"
         const val HELD = "HELD"
+        const val CLIMB = "CLIMB"
 
-        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD)
+        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB)
 
         fun empty(id: String, name: String): AliveProfile = AliveProfile(id, name)
 
@@ -30,7 +31,8 @@ data class AliveProfile(
             val profile = AliveProfile(
                 id = root.getString("id"),
                 name = root.getString("name"),
-                isTemplate = root.optBoolean("template", false)
+                isTemplate = root.optBoolean("template", false),
+                sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200)
             )
             val frameObject = root.optJSONObject("frames") ?: return profile
             STATES.forEach { state ->
@@ -48,6 +50,7 @@ data class AliveProfile(
         root.put("id", id)
         root.put("name", name)
         root.put("template", isTemplate)
+        root.put("sizePercent", sizePercent.coerceIn(25, 200))
         val frameObject = JSONObject()
         frames.forEach { (state, uris) ->
             val array = org.json.JSONArray()
@@ -102,7 +105,7 @@ object AliveRepository {
     }
 
     fun createTemplate(context: Context): AliveProfile {
-        val profile = AliveProfile("template_cat", "Cat", isTemplate = true)
+        val profile = AliveProfile("template_cat", "Cat", isTemplate = true, sizePercent = 55)
         save(context, profile)
         setActive(context, profile)
         return profile
