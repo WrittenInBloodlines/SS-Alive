@@ -32,7 +32,6 @@ object PetSprite {
         canvas.save()
         canvas.scale(scale, scale)
         canvas.translate(64f, 64f)
-        // When moving right the black tail is behind the body on the left.
         if (direction < 0) canvas.scale(-1f, 1f)
         when (state) {
             PetBehavior.State.WALKING -> drawWalk(canvas, frame)
@@ -69,7 +68,7 @@ object PetSprite {
 
     private fun drawSit(canvas: Canvas, frame: Int) {
         val f = frame.mod(5)
-        drawCat(canvas, floatArrayOf(1f, 0f, -1f, 0f, 1f)[f], 0f, f + 2, f == 3 ? 1 : 0, 1f, true)
+        drawCat(canvas, floatArrayOf(1f, 0f, -1f, 0f, 1f)[f], 0f, f + 2, if (f == 3) 1 else 0, 1f, true)
     }
 
     private fun drawJump(canvas: Canvas, frame: Int) {
@@ -96,8 +95,6 @@ object PetSprite {
         canvas.restore()
     }
 
-    private fun drawHeld(Canvas: Canvas, frame: Int) {}
-
     private fun drawHeld(canvas: Canvas, frame: Int) {
         val f = frame.mod(6)
         canvas.save()
@@ -106,22 +103,13 @@ object PetSprite {
         canvas.restore()
     }
 
-    private fun drawCat(
-        canvas: Canvas,
-        bob: Float,
-        legOffset: Float,
-        tailPose: Int,
-        eyePose: Int,
-        bodyScale: Float,
-        sitting: Boolean = false
-    ) {
+    private fun drawCat(canvas: Canvas, bob: Float, legOffset: Float, tailPose: Int, eyePose: Int, bodyScale: Float, sitting: Boolean = false) {
         canvas.save(); canvas.scale(bodyScale, bodyScale)
         val body = RectF(-34f, -7f + bob, 31f, 35f + bob)
-        fill.color = Color.WHITE
-        outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 6f
+        fill.color = Color.WHITE; outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 6f
         canvas.drawRoundRect(body, 18f, 18f, outline); canvas.drawRoundRect(body, 18f, 18f, fill)
 
-        // Tail is black and stays behind the white body, trailing to the left when facing right.
+        // Black tail trails behind the body, so it appears on the left while the cat faces right.
         outline.color = Color.BLACK; outline.strokeWidth = 9f
         val tail = Path().apply {
             moveTo(27f, 12f + bob)
@@ -134,7 +122,7 @@ object PetSprite {
         }
         canvas.drawPath(tail, outline)
 
-        // Head is intentionally kept well inside the 128x128 sprite canvas, so it cannot be clipped.
+        // Head stays comfortably inside the sprite canvas, preventing the old clipping problem.
         val head = RectF(-35f, -53f + bob, 34f, 2f + bob)
         fill.color = Color.WHITE; outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 6f
         canvas.drawRoundRect(head, 20f, 20f, outline); canvas.drawRoundRect(head, 20f, 20f, fill)
@@ -164,7 +152,6 @@ object PetSprite {
         outline.color = Color.rgb(45, 45, 52); outline.strokeWidth = 1.8f
         canvas.drawLine(0f, -4f + bob, -5f, 0f + bob, outline); canvas.drawLine(0f, -4f + bob, 5f, 0f + bob, outline)
 
-        // Collar and little tag.
         fill.color = Color.rgb(60, 60, 68)
         canvas.drawRoundRect(RectF(-23f, 0f + bob, 22f, 6f + bob), 3f, 3f, fill)
         fill.color = Color.WHITE; canvas.drawCircle(0f, 7f + bob, 3f, fill)
