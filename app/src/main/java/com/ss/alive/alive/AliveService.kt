@@ -26,10 +26,7 @@ class AliveService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!Settings.canDrawOverlays(this)) return START_STICKY
-        // Rebuild the overlay when the user selects a different Alive.
-        removePet()
-        showPet()
-        return START_STICKY
+        removePet(); showPet(); return START_STICKY
     }
 
     private fun showPet() {
@@ -38,22 +35,16 @@ class AliveService : Service() {
         val view = PetView(this, profile)
         petView = view
 
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+        // The overlay is deliberately larger than the visible sprite, preventing transparent
+        // sprite pixels (ears/tail) from being clipped at the old 150x150 boundary.
+        val baseSize = 230
+        val size = (baseSize * profile.sizePercent.coerceIn(25, 200) / 100).coerceIn(90, 460)
         val params = WindowManager.LayoutParams(
-            150,
-            150,
-            type,
+            size, size, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 180
-            y = 500
-        }
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = 180; y = 500 }
         view.layoutParams = params
         windowManager.addView(view, params)
     }
@@ -63,11 +54,7 @@ class AliveService : Service() {
         petView = null
     }
 
-    override fun onDestroy() {
-        removePet()
-        super.onDestroy()
-    }
-
+    override fun onDestroy() { removePet(); super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
@@ -84,8 +71,5 @@ class AliveService : Service() {
         .setOngoing(true)
         .build()
 
-    companion object {
-        private const val CHANNEL_ID = "ss_alive"
-        private const val NOTIFICATION_ID = 1001
-    }
+    companion object { private const val CHANNEL_ID = "ss_alive"; private const val NOTIFICATION_ID = 1001 }
 }
