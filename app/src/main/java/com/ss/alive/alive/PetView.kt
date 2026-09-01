@@ -19,10 +19,12 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var lastAnimationTime = 0L
     private var lastState = behavior.state
     private var lastDirection = behavior.direction
+    private var interactionTicks = 0
+    fun startInteraction() { if (interactionTicks == 0) { interactionTicks = 16; behavior.setSitting() } }
 
     private val animationRunnable = object : Runnable {
         override fun run() {
-            if (!dragging) movePet()
+            if (interactionTicks > 0) { interactionTicks--; if (interactionTicks == 0) behavior.resumeWalking() } else if (!dragging) movePet()
             updateSpriteFrame(); invalidate(); handler.postDelayed(this, 30L)
         }
     }
