@@ -16,7 +16,7 @@ import com.ss.alive.R
 
 class AliveService : Service() {
     private lateinit var windowManager: WindowManager
-    private var petView: PetView? = null
+    private val petViews = mutableListOf<PetView>()
 
     override fun onCreate() {
         super.onCreate()
@@ -26,14 +26,28 @@ class AliveService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!Settings.canDrawOverlays(this)) return START_STICKY
-        removePet(); showPet(); return START_STICKY
+        removePets(); showPets(); return START_STICKY
     }
 
-    private fun showPet() {
+    private fun showPets() {
+        val profiles = AliveRepository.equipped(this).ifEmpty { listOf(AliveRepository.createTemplate(this)) }
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        profiles.forEachIndexed { index, profile ->
+        val view = PetView(this, profile)
+        petViews += view
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+        val baseSize = 230
+        val size = (baseSize * profile.sizePercent.coerceIn(25, 200) / 100).coerceIn(90, 460)
+        val params = WindowManager.LayoutParams(size, size, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.START; x = 80 + index * 150; y = 500 - (index % 2) * 120 }
+        view.layoutParams = params; windowManager.addView(view, params)
+        }
+    }
+
+    private fun showPetOld() {
         val profile = AliveRepository.active(this) ?: AliveRepository.createTemplate(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val view = PetView(this, profile)
-        petView = view
+        // legacy single view path unused
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
         // The overlay is deliberately larger than the visible sprite, preventing transparent
@@ -49,12 +63,9 @@ class AliveService : Service() {
         windowManager.addView(view, params)
     }
 
-    private fun removePet() {
-        petView?.let { runCatching { windowManager.removeView(it) } }
-        petView = null
-    }
+    private fun removePets() { petViews.forEach { runCatching { windowManager.removeView(it) } }; petViews.clear() }
 
-    override fun onDestroy() { removePet(); super.onDestroy() }
+    override fun onDestroy() { removePets(); super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
