@@ -8,7 +8,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 
-/** Draws user-selected image frames, falling back to the built-in Cat Template. */
+/** Draws user-selected image frames and downloaded S•S template frames. */
 class CustomPetSprite(private val context: Context, private val profile: AliveProfile) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val cache = mutableMapOf<String, MutableList<Bitmap>>()
@@ -26,9 +26,7 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
             return
         }
         val bitmap = bitmaps[frame % bitmaps.size]
-        // Fit the whole source image inside the overlay view, preserving transparent padding.
-        val scale = minOf(canvas.width.toFloat() / bitmap.width, canvas.height.toFloat() / bitmap.height)
-            .coerceAtMost(2.0f)
+        val scale = minOf(canvas.width.toFloat() / bitmap.width, canvas.height.toFloat() / bitmap.height).coerceAtMost(2.0f)
         val width = bitmap.width * scale
         val height = bitmap.height * scale
         val left = (canvas.width - width) / 2f
@@ -56,9 +54,15 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
         val loaded = mutableListOf<Bitmap>()
         profile.frameUris(state).forEach { rawUri ->
             runCatching {
-                context.contentResolver.openInputStream(Uri.parse(rawUri)).use { stream ->
-                    if (stream != null) BitmapFactory.decodeStream(stream)?.let(loaded::add)
+                val uri = Uri.parse(rawUri)
+                val bitmap = if (uri.scheme == "file") {
+                    BitmapFactory.decodeFile(uri.path)
+                } else {
+                    context.contentResolver.openInputStream(uri).use { stream ->
+                        if (stream != null) BitmapFactory.decodeStream(stream) else null
+                    }
                 }
+                bitmap?.let(loaded::add)
             }
         }
         cache[state] = loaded
