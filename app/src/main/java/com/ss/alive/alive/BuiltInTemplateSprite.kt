@@ -1,0 +1,11 @@
+package com.ss.alive.alive
+import android.graphics.*
+import kotlin.math.sin
+object BuiltInTemplateSprite{
+fun frameCount(kind:String,state:PetBehavior.State)=if(kind=="CAT"||kind=="CUSTOM")PetSprite.frameCount(state) else when(state){PetBehavior.State.IDLE->10;PetBehavior.State.WALKING->12;PetBehavior.State.CLIMBING->10;else->8}
+fun draw(kind:String,c:Canvas,f:Int,s:PetBehavior.State,d:Int){when(kind){"DOG"->dog(c,f,s,d);"CHICK"->chick(c,f,s,d);else->PetSprite.draw(c,f,s,d)}}
+private val fill=Paint(Paint.ANTI_ALIAS_FLAG);private val line=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
+private fun setup(c:Canvas,d:Int){val z=minOf(c.width,c.height)/150f;c.save();c.scale(z,z);c.translate(75f,75f);if(d<0)c.scale(-1f,1f)}
+private fun dog(c:Canvas,f:Int,s:PetBehavior.State,d:Int){setup(c,d);val w=sin(f*Math.PI/6).toFloat()*9;line.color=Color.rgb(65,45,30);line.strokeWidth=5f;fill.color=Color.rgb(195,145,90);c.drawOval(RectF(-38f,-8f,30f,35f),fill);c.drawOval(RectF(-38f,-8f,30f,35f),line);c.drawOval(RectF(12f,-47f,55f,-7f),fill);c.drawOval(RectF(12f,-47f,55f,-7f),line);fill.color=Color.rgb(80,55,35);c.drawOval(RectF(16f,-55f,29f,-23f),fill);c.drawOval(RectF(42f,-55f,55f,-23f),fill);fill.color=Color.BLACK;c.drawCircle(47f,-15f,4f,fill);for(i in 0..3){val xx=-25+i*17;val sw=if(i%2==0)w else -w;line.strokeWidth=6f;c.drawLine(xx,25f,xx+sw,48f,line)}line.strokeWidth=6f;c.drawLine(-35f,4f,-52f,-5f+w/2,line);c.restore()}
+private fun chick(c:Canvas,f:Int,s:PetBehavior.State,d:Int){setup(c,d);val w=sin(f*Math.PI/5).toFloat()*2;line.color=Color.rgb(190,150,35);line.strokeWidth=4f;fill.color=Color.rgb(255,220,55);c.drawCircle(-5f,16f+w,28f,fill);c.drawCircle(-5f,16f+w,28f,line);c.drawCircle(17f,-15f+w,23f,fill);c.drawCircle(17f,-15f+w,23f,line);fill.color=Color.BLACK;c.drawCircle(25f,-20f+w,3f,fill);fill.color=Color.rgb(245,145,35);val p=Path();p.moveTo(38f,-15f+w);p.lineTo(52f,-10f+w);p.lineTo(38f,-5f+w);p.close();c.drawPath(p,fill);line.color=Color.rgb(220,120,25);for(xx in listOf(-10f,5f)){c.drawLine(xx,40f+w,xx+w*3,52f+w,line)}c.restore()}
+}
