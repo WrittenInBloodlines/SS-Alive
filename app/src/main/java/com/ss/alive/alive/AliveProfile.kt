@@ -9,7 +9,8 @@ data class AliveProfile(
     var isTemplate: Boolean = false,
     var templateKind: String = "CUSTOM",
     var sizePercent: Int = 55,
-    val frames: MutableMap<String, MutableList<String>> = mutableMapOf()
+    val frames: MutableMap<String, MutableList<String>> = mutableMapOf(),
+    val speedsFps: MutableMap<String, Int> = mutableMapOf()
 ) {
     companion object {
         const val IDLE = "IDLE"
@@ -22,6 +23,7 @@ data class AliveProfile(
         const val HELD = "HELD"
         const val CLIMB = "CLIMB"
         val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB)
+        const val DEFAULT_FPS = 10
 
         fun empty(id: String, name: String): AliveProfile = AliveProfile(id, name)
 
@@ -34,15 +36,25 @@ data class AliveProfile(
                 templateKind = root.optString("templateKind", "CUSTOM"),
                 sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200)
             )
-            val frameObject = root.optJSONObject("frames") ?: return profile
+            val frameObject = root.optJSONObject("frames")
             STATES.forEach { state ->
-                val array = frameObject.optJSONArray(state) ?: return@forEach
+                val array = frameObject?.optJSONArray(state) ?: return@forEach
                 val list = mutableListOf<String>()
                 for (i in 0 until array.length()) list += array.getString(i)
                 profile.frames[state] = list
             }
+            val speedObject = root.optJSONObject("speedsFps")
+            STATES.forEach { state ->
+                profile.speedsFps[state] = (speedObject?.optInt(state, DEFAULT_FPS) ?: DEFAULT_FPS).coerceIn(1, 30)
+            }
             return profile
         }
+    }
+
+    fun speedFps(state: String): Int = speedsFps[state]?.coerceIn(1, 30) ?: DEFAULT_FPS
+
+    fun setSpeedFps(state: String, fps: Int) {
+        speedsFps[state] = fps.coerceIn(1, 30)
     }
 
     fun toJson(): String {
@@ -60,6 +72,10 @@ data class AliveProfile(
             frameObject.put(state, array)
         }
         root.put("frames", frameObject)
+
+        val speedObject = JSONObject()
+        STATES.forEach { state -> speedObject.put(state, speedFps(state)) }
+        root.put("speedsFps", speedObject)
         return root.toString()
     }
 
@@ -125,19 +141,6 @@ object AliveRepository {
     }
 
     fun removeLegacyTemplates(c: Context) {
-        listOf("template_cat", "template_dog", "template_chick").forEach { delete(c, it) }
+        listOf("template_cat", "template_dog", "template_chick", "template_alex", "template_ciro").forEach { delete(c, it) }
     }
-
-    fun template(c: Context, kind: String): AliveProfile {
-        val k = kind.uppercase()
-        val profile = when (k) {
-            "ALEX" -> AliveProfile("template_alex", "Alex", true, "ALEX", 68)
-            "CIRO" -> AliveProfile("template_ciro", "Ciro", true, "CIRO", 63)
-            else -> throw IllegalArgumentException("Unknown S•S Alive template: $kind")
-        }
-        save(c, profile)
-        return profile
-    }
-
-    fun createTemplate(c: Context): AliveProfile = template(c, "ALEX")
 }
