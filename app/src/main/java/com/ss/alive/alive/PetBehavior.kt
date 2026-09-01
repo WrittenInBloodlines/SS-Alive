@@ -3,7 +3,7 @@ package com.ss.alive.alive
 import kotlin.random.Random
 
 class PetBehavior(var speedPxPerTick: Int = 4) {
-    enum class State { WALKING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD }
+    enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD }
 
     var direction: Int = 1
         private set
@@ -49,6 +49,8 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
 
         if (reversing) return Position(currentX, currentY)
 
+        state = if (routeSegment == 1 || routeSegment == 3) State.CLIMBING else if (state == State.CLIMBING) State.WALKING else state
+
         if (state == State.IDLE) {
             if (idleTicksRemaining > 0) {
                 idleTicksRemaining--
@@ -89,6 +91,7 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
         return Position(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
     }
 
+    fun setClimbing() { state = State.CLIMBING }
     fun reverse() {
         if (state != State.FALLING && state != State.HELD && state != State.LANDING && !reversing) {
             reversing = true
