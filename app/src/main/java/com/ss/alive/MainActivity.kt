@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.ss.alive.alive.AliveEditorActivity
 import com.ss.alive.alive.AliveRepository
 import com.ss.alive.alive.AliveService
+import com.ss.alive.alive.TemplatesActivity
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,9 +26,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::rootView.isInitialized) {
-            showHome()
-        }
+        if (::rootView.isInitialized) showHome()
     }
 
     private fun showHome() {
@@ -44,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         rootView.addView(TextView(this).apply {
             text = "Create characters that can live on your screen."
             textSize = 17f
+            setPadding(0, 0, 0, 24)
         })
 
         rootView.addView(Button(this).apply {
@@ -53,15 +53,12 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        rootView.addView(TextView(this).apply {
+        rootView.addView(Button(this).apply {
             text = "TEMPLATES"
-            textSize = 22f
-            setPadding(0, 28, 0, 8)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, TemplatesActivity::class.java))
+            }
         })
-
-        addTemplateCard("CAT", "🐈", "Cat")
-        addTemplateCard("DOG", "🐕", "Dog")
-        addTemplateCard("CHICK", "🐥", "Chick")
 
         rootView.addView(Button(this).apply {
             text = "ALLOW DISPLAY OVER OTHER APPS"
@@ -77,9 +74,7 @@ class MainActivity : AppCompatActivity() {
 
         rootView.addView(Button(this).apply {
             text = "START EQUIPPED ALIVES"
-            setOnClickListener {
-                startEquipped()
-            }
+            setOnClickListener { startEquipped() }
         })
 
         rootView.addView(Button(this).apply {
@@ -95,6 +90,7 @@ class MainActivity : AppCompatActivity() {
             rootView.addView(TextView(this).apply {
                 text = "YOUR ALIVES"
                 textSize = 21f
+                setPadding(0, 28, 0, 8)
             })
 
             personalAlives.forEach { profile ->
@@ -122,38 +118,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(rootView)
     }
 
-    private fun addTemplateCard(
-        templateKind: String,
-        emoji: String,
-        displayName: String
-    ) {
-        val profile = AliveRepository.template(this, templateKind)
-
-        rootView.addView(TextView(this).apply {
-            text = "$emoji  $displayName"
-            textSize = 19f
-        })
-
-        rootView.addView(Button(this).apply {
-            text = if (AliveRepository.isEquipped(this@MainActivity, profile.id)) {
-                "UNEQUIP"
-            } else {
-                "EQUIP"
-            }
-
-            setOnClickListener {
-                if (AliveRepository.isEquipped(this@MainActivity, profile.id)) {
-                    AliveRepository.unequip(this@MainActivity, profile.id)
-                } else {
-                    AliveRepository.equip(this@MainActivity, profile)
-                }
-                showHome()
-            }
-        })
-    }
-
     private fun startEquipped() {
-        if (AliveRepository.equipped(this).isEmpty()) {
+        val equipped = AliveRepository.equipped(this)
+
+        if (equipped.isEmpty()) {
             Toast.makeText(
                 this,
                 "Equip at least one Alive first",
@@ -169,12 +137,18 @@ class MainActivity : AppCompatActivity() {
                     Uri.parse("package:$packageName")
                 )
             )
+            Toast.makeText(
+                this,
+                "Allow display over other apps, then return and press Start Equipped Alives.",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
 
         ContextCompat.startForegroundService(
             this,
             Intent(this, AliveService::class.java)
+                .setAction(AliveService.ACTION_SHOW_EQUIPPED)
         )
     }
 }
