@@ -6,20 +6,25 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 
-/**
- * Built-in Cat Template sprite.
- *
- * Every supported state has four intentional animation poses. The sprite is
- * drawn locally so the Cat Template works without bundled image files.
- */
+/** Built-in cute high-contrast Cat Template with state-specific frame counts. */
 object PetSprite {
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }
     private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isDither = true
         style = Paint.Style.STROKE
-        strokeWidth = 3.5f
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
+    }
+
+    fun frameCount(state: PetBehavior.State): Int = when (state) {
+        PetBehavior.State.IDLE -> 8
+        PetBehavior.State.WALKING -> 8
+        PetBehavior.State.RUNNING -> 6
+        PetBehavior.State.SIT -> 5
+        PetBehavior.State.JUMP -> 6
+        PetBehavior.State.FALLING -> 6
+        PetBehavior.State.LANDING -> 5
+        PetBehavior.State.HELD -> 6
     }
 
     fun draw(canvas: Canvas, frame: Int, state: PetBehavior.State, direction: Int) {
@@ -27,8 +32,8 @@ object PetSprite {
         canvas.save()
         canvas.scale(scale, scale)
         canvas.translate(64f, 64f)
+        // When moving right the black tail is behind the body on the left.
         if (direction < 0) canvas.scale(-1f, 1f)
-
         when (state) {
             PetBehavior.State.WALKING -> drawWalk(canvas, frame)
             PetBehavior.State.RUNNING -> drawRun(canvas, frame)
@@ -42,206 +47,141 @@ object PetSprite {
         canvas.restore()
     }
 
+    private fun drawIdle(canvas: Canvas, frame: Int) {
+        val f = frame.mod(8)
+        val bob = floatArrayOf(0f, -1f, -2f, -1f, 0f, 1f, 2f, 1f)[f]
+        drawCat(canvas, bob, 0f, f, if (f == 3 || f == 4) 1 else 0, 1f)
+    }
+
     private fun drawWalk(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val bob = floatArrayOf(1f, 0f, -1f, 0f)[f]
-        val legs = arrayOf(
-            floatArrayOf(7f, -7f, -5f, 5f),
-            floatArrayOf(3f, -3f, -2f, 2f),
-            floatArrayOf(-7f, 7f, 5f, -5f),
-            floatArrayOf(-3f, 3f, 2f, -2f)
-        )[f]
-        drawCat(canvas, bob, legs, tailPose = f, eyePose = 0, bodyScale = 1f)
+        val f = frame.mod(8)
+        val bob = floatArrayOf(1f, 0f, -1f, -2f, -1f, 0f, 1f, 0f)[f]
+        val legs = floatArrayOf(7f, 3f, -5f, -7f, -3f, 5f, 7f, 3f)[f]
+        drawCat(canvas, bob, legs, f, 0, 1f)
     }
 
     private fun drawRun(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val bob = floatArrayOf(2f, -1f, -2f, -1f)[f]
-        val legs = arrayOf(
-            floatArrayOf(11f, -11f, -9f, 9f),
-            floatArrayOf(7f, -7f, -5f, 5f),
-            floatArrayOf(-11f, 11f, 9f, -9f),
-            floatArrayOf(-7f, 7f, 5f, -5f)
-        )[f]
-        drawCat(canvas, bob, legs, tailPose = (f + 1) % 4, eyePose = 0, bodyScale = 1.04f)
-    }
-
-    private fun drawIdle(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val bob = floatArrayOf(0f, -1f, 0f, 1f)[f]
-        val blink = f == 2
-        drawCat(canvas, bob, floatArrayOf(0f, 0f, 0f, 0f), tailPose = f, eyePose = if (blink) 1 else 0, bodyScale = 1f)
+        val f = frame.mod(6)
+        val bob = floatArrayOf(2f, 0f, -2f, -1f, 1f, 2f)[f]
+        val legs = floatArrayOf(11f, -8f, 9f, -11f, 8f, -9f)[f]
+        drawCat(canvas, bob, legs, f, 0, 1.03f)
     }
 
     private fun drawSit(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val bob = floatArrayOf(1f, 0f, -1f, 0f)[f]
-        drawCat(canvas, bob + 5f, floatArrayOf(0f, 0f, 0f, 0f), tailPose = (f + 2) % 4, eyePose = 0, bodyScale = 1f, sitting = true)
+        val f = frame.mod(5)
+        drawCat(canvas, floatArrayOf(1f, 0f, -1f, 0f, 1f)[f], 0f, f + 2, f == 3 ? 1 : 0, 1f, true)
     }
 
     private fun drawJump(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val rotations = floatArrayOf(-6f, -2f, 3f, 6f)
-        val y = floatArrayOf(-3f, -7f, -7f, -3f)[f]
-        canvas.save()
-        canvas.rotate(rotations[f])
-        drawCat(canvas, y, floatArrayOf(9f, -9f, 9f, -9f), tailPose = f, eyePose = 0, bodyScale = 1f)
+        val f = frame.mod(6)
+        val rotation = floatArrayOf(-7f, -4f, -1f, 2f, 5f, 7f)[f]
+        val y = floatArrayOf(-2f, -5f, -8f, -8f, -5f, -2f)[f]
+        canvas.save(); canvas.rotate(rotation)
+        drawCat(canvas, y, floatArrayOf(9f, 5f, -7f, -9f, -5f, 7f)[f], f, 0, 1f)
         canvas.restore()
     }
 
     private fun drawFall(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val rotations = floatArrayOf(-10f, -25f, -40f, -55f)
-        val y = floatArrayOf(-1f, 1f, 3f, 5f)[f]
-        canvas.save()
-        canvas.rotate(rotations[f])
-        drawCat(canvas, y, floatArrayOf(10f, -10f, 10f, -10f), tailPose = (f + 1) % 4, eyePose = 0, bodyScale = 1f)
+        val f = frame.mod(6)
+        canvas.save(); canvas.rotate(floatArrayOf(-8f, -18f, -29f, -40f, -51f, -62f)[f])
+        drawCat(canvas, f.toFloat(), floatArrayOf(10f, -9f, 8f, -10f, 7f, -8f)[f], f + 1, 0, 1f)
         canvas.restore()
     }
 
     private fun drawLanding(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val squash = floatArrayOf(0.72f, 0.84f, 0.94f, 1f)[f]
-        val y = floatArrayOf(8f, 6f, 3f, 1f)[f]
-        canvas.save()
-        canvas.scale(1f + (1f - squash) * 0.18f, squash)
-        drawCat(canvas, y, floatArrayOf(0f, 0f, 0f, 0f), tailPose = f, eyePose = 0, bodyScale = 1f)
+        val f = frame.mod(5)
+        val squash = floatArrayOf(0.72f, 0.82f, 0.91f, 0.98f, 1f)[f]
+        canvas.save(); canvas.scale(1f + (1f - squash) * 0.22f, squash)
+        drawCat(canvas, floatArrayOf(8f, 6f, 4f, 2f, 1f)[f], 0f, f, 0, 1f)
         canvas.restore()
     }
 
+    private fun drawHeld(Canvas: Canvas, frame: Int) {}
+
     private fun drawHeld(canvas: Canvas, frame: Int) {
-        val f = frame.mod(4)
-        val rotations = floatArrayOf(-4f, -1f, 3f, 1f)
-        val bob = floatArrayOf(0f, 2f, 0f, -2f)[f]
+        val f = frame.mod(6)
         canvas.save()
-        canvas.rotate(rotations[f])
-        drawCat(canvas, bob, floatArrayOf(2f, -2f, 2f, -2f), tailPose = (f + 2) % 4, eyePose = if (f == 3) 1 else 0, bodyScale = 0.98f)
+        canvas.rotate(floatArrayOf(-4f, -2f, 0f, 3f, 4f, 1f)[f])
+        drawCat(canvas, floatArrayOf(0f, 2f, 1f, 0f, -2f, -1f)[f], if (f % 2 == 0) 2f else -2f, f + 2, if (f == 3) 1 else 0, 0.98f)
         canvas.restore()
     }
 
     private fun drawCat(
         canvas: Canvas,
         bob: Float,
-        legs: FloatArray,
+        legOffset: Float,
         tailPose: Int,
         eyePose: Int,
         bodyScale: Float,
         sitting: Boolean = false
     ) {
-        val bodyY = bob
-        val headY = bob - 32f
-
-        // Soft dark outline first, then the white sprite on top. This keeps the
-        // character readable on both dark and light Android themes.
-        outline.color = Color.rgb(35, 35, 42)
-        outline.strokeWidth = 6f
+        canvas.save(); canvas.scale(bodyScale, bodyScale)
+        val body = RectF(-34f, -7f + bob, 31f, 35f + bob)
         fill.color = Color.WHITE
+        outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 6f
+        canvas.drawRoundRect(body, 18f, 18f, outline); canvas.drawRoundRect(body, 18f, 18f, fill)
 
-        canvas.save()
-        canvas.scale(bodyScale, bodyScale)
-
-        val body = RectF(-34f, -7f + bodyY, 31f, 35f + bodyY)
-        canvas.drawRoundRect(body, 18f, 18f, outline)
-        canvas.drawRoundRect(body, 18f, 18f, fill)
-
-        val head = RectF(-35f, -58f + headY, 34f, -3f + headY)
-        canvas.drawRoundRect(head, 20f, 20f, outline)
-        canvas.drawRoundRect(head, 20f, 20f, fill)
-
-        drawEar(canvas, -27f, -47f + headY, -42f, -66f + headY, -9f, -50f + headY)
-        drawEar(canvas, 10f, -50f + headY, 26f, -66f + headY, 29f, -43f + headY)
-
-        // Inner ears.
-        fill.color = Color.rgb(210, 210, 216)
-        val leftInner = Path().apply {
-            moveTo(-24f, -49f + headY)
-            lineTo(-22f, -60f + headY)
-            lineTo(-13f, -51f + headY)
-            close()
-        }
-        val rightInner = Path().apply {
-            moveTo(15f, -51f + headY)
-            lineTo(25f, -60f + headY)
-            lineTo(27f, -47f + headY)
-            close()
-        }
-        canvas.drawPath(leftInner, fill)
-        canvas.drawPath(rightInner, fill)
-
-        // Tail has four deliberately different poses.
-        outline.color = Color.WHITE
-        outline.strokeWidth = 10f
-        outline.style = Paint.Style.STROKE
+        // Tail is black and stays behind the white body, trailing to the left when facing right.
+        outline.color = Color.BLACK; outline.strokeWidth = 9f
         val tail = Path().apply {
-            moveTo(27f, 12f + bodyY)
+            moveTo(27f, 12f + bob)
             when (tailPose.mod(4)) {
-                0 -> { cubicTo(46f, 5f + bodyY, 48f, -10f + bodyY, 39f, -18f + bodyY) }
-                1 -> { cubicTo(48f, 15f + bodyY, 53f, 1f + bodyY, 43f, -5f + bodyY) }
-                2 -> { cubicTo(47f, 28f + bodyY, 49f, 39f + bodyY, 37f, 42f + bodyY) }
-                else -> { cubicTo(45f, 4f + bodyY, 55f, 18f + bodyY, 43f, 27f + bodyY) }
+                0 -> cubicTo(44f, 6f + bob, 51f, -8f + bob, 43f, -18f + bob)
+                1 -> cubicTo(47f, 12f + bob, 53f, 0f + bob, 44f, -5f + bob)
+                2 -> cubicTo(46f, 26f + bob, 51f, 38f + bob, 38f, 42f + bob)
+                else -> cubicTo(45f, 4f + bob, 55f, 18f + bob, 43f, 28f + bob)
             }
         }
         canvas.drawPath(tail, outline)
-        outline.color = Color.rgb(35, 35, 42)
-        outline.strokeWidth = 2.5f
-        canvas.drawPath(tail, outline)
 
-        // Eyes: large black eyes with tiny white highlights.
+        // Head is intentionally kept well inside the 128x128 sprite canvas, so it cannot be clipped.
+        val head = RectF(-35f, -53f + bob, 34f, 2f + bob)
+        fill.color = Color.WHITE; outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 6f
+        canvas.drawRoundRect(head, 20f, 20f, outline); canvas.drawRoundRect(head, 20f, 20f, fill)
+
+        drawEar(canvas, -28f, -43f + bob, -25f, -61f + bob, -9f, -46f + bob)
+        drawEar(canvas, 9f, -46f + bob, 25f, -61f + bob, 29f, -42f + bob)
+
+        fill.color = Color.rgb(205, 205, 214)
+        val leftInner = Path().apply { moveTo(-24f, -46f + bob); lineTo(-23f, -56f + bob); lineTo(-15f, -47f + bob); close() }
+        val rightInner = Path().apply { moveTo(15f, -47f + bob); lineTo(24f, -56f + bob); lineTo(26f, -44f + bob); close() }
+        canvas.drawPath(leftInner, fill); canvas.drawPath(rightInner, fill)
+
         fill.color = Color.BLACK
         if (eyePose == 1) {
-            outline.color = Color.BLACK
-            outline.strokeWidth = 3f
-            canvas.drawLine(-18f, -27f + headY, -8f, -27f + headY, outline)
-            canvas.drawLine(8f, -27f + headY, 18f, -27f + headY, outline)
+            outline.color = Color.BLACK; outline.strokeWidth = 3f
+            canvas.drawLine(-18f, -22f + bob, -9f, -22f + bob, outline)
+            canvas.drawLine(9f, -22f + bob, 18f, -22f + bob, outline)
         } else {
-            canvas.drawOval(RectF(-20f, -34f + headY, -9f, -18f + headY), fill)
-            canvas.drawOval(RectF(9f, -34f + headY, 20f, -18f + headY), fill)
+            canvas.drawOval(RectF(-20f, -30f + bob, -8f, -14f + bob), fill)
+            canvas.drawOval(RectF(8f, -30f + bob, 20f, -14f + bob), fill)
             fill.color = Color.WHITE
-            canvas.drawCircle(-16f, -30f + headY, 2.3f, fill)
-            canvas.drawCircle(13f, -30f + headY, 2.3f, fill)
+            canvas.drawCircle(-16f, -26f + bob, 2.5f, fill); canvas.drawCircle(13f, -26f + bob, 2.5f, fill)
         }
 
-        // Nose and tiny mouth.
-        fill.color = Color.rgb(55, 55, 62)
-        canvas.drawCircle(0f, -11f + headY, 3f, fill)
-        outline.color = Color.rgb(55, 55, 62)
-        outline.strokeWidth = 2f
-        canvas.drawLine(0f, -8f + headY, -5f, -4f + headY, outline)
-        canvas.drawLine(0f, -8f + headY, 5f, -4f + headY, outline)
+        fill.color = Color.rgb(45, 45, 52)
+        canvas.drawCircle(0f, -7f + bob, 2.7f, fill)
+        outline.color = Color.rgb(45, 45, 52); outline.strokeWidth = 1.8f
+        canvas.drawLine(0f, -4f + bob, -5f, 0f + bob, outline); canvas.drawLine(0f, -4f + bob, 5f, 0f + bob, outline)
 
-        // Small collar detail.
-        fill.color = Color.rgb(65, 65, 72)
-        canvas.drawRoundRect(RectF(-23f, 0f + bodyY, 22f, 6f + bodyY), 3f, 3f, fill)
-        fill.color = Color.WHITE
-        canvas.drawCircle(0f, 7f + bodyY, 3f, fill)
+        // Collar and little tag.
+        fill.color = Color.rgb(60, 60, 68)
+        canvas.drawRoundRect(RectF(-23f, 0f + bob, 22f, 6f + bob), 3f, 3f, fill)
+        fill.color = Color.WHITE; canvas.drawCircle(0f, 7f + bob, 3f, fill)
 
-        // Legs and paws, with four different walk poses.
-        outline.color = Color.rgb(35, 35, 42)
-        outline.strokeWidth = 7f
-        outline.strokeCap = Paint.Cap.ROUND
-        val legY = if (sitting) 43f else 46f
+        outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 7f; outline.strokeCap = Paint.Cap.ROUND
         val base = floatArrayOf(-22f, -7f, 9f, 24f)
+        val legY = if (sitting) 42f else 46f
         for (i in 0..3) {
-            val x = base[i]
-            val offset = if (sitting) 0f else legs[i]
-            canvas.drawLine(x, 28f + bodyY, x + offset, legY + bodyY, outline)
+            val offset = if (sitting) 0f else legOffset * if (i % 2 == 0) 1f else -1f
+            canvas.drawLine(base[i], 27f + bob, base[i] + offset, legY + bob, outline)
         }
-
         canvas.restore()
     }
 
     private fun drawEar(canvas: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
-        val ear = Path().apply {
-            moveTo(x1, y1)
-            lineTo(x2, y2)
-            lineTo(x3, y3)
-            close()
-        }
-        outline.color = Color.rgb(35, 35, 42)
-        outline.style = Paint.Style.STROKE
-        outline.strokeWidth = 5f
-        canvas.drawPath(ear, outline)
-        fill.color = Color.WHITE
-        canvas.drawPath(ear, fill)
+        val ear = Path().apply { moveTo(x1, y1); lineTo(x2, y2); lineTo(x3, y3); close() }
+        fill.color = Color.WHITE; outline.color = Color.rgb(35, 35, 42); outline.strokeWidth = 5f
+        canvas.drawPath(ear, outline); canvas.drawPath(ear, fill)
     }
 }
