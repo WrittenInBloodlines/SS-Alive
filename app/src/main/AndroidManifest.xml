@@ -9,6 +9,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SSAlive">
 
+        <receiver
+            android:name=".account.AccountBridgeReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".alive.TemplatesActivity"
             android:exported="false" />
