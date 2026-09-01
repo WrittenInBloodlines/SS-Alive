@@ -13,9 +13,9 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import kotlin.math.sqrt
 
 class AliveService : Service() {
-
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
@@ -24,7 +24,7 @@ class AliveService : Service() {
     private val interactionRunnable = object : Runnable {
         override fun run() {
             checkInteractions()
-            interactionHandler.postDelayed(this, 500L)
+            interactionHandler.postDelayed(this, 120L)
         }
     }
 
@@ -41,7 +41,6 @@ class AliveService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-
         removePets()
         pairInteractionTimes.clear()
         showPets()
@@ -50,39 +49,24 @@ class AliveService : Service() {
 
     private fun showPets() {
         val profiles = AliveRepository.equipped(this)
-
         profiles.forEachIndexed { index, profile ->
             val view = PetView(this, profile)
-
-            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                WindowManager.LayoutParams.TYPE_PHONE
-            }
-
-            val baseSize = 230
-            val size = (
-                baseSize * profile.sizePercent.coerceIn(25, 200) / 100
-            ).coerceIn(90, 460)
-
+            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+            val baseSize = 250
+            val size = (baseSize * profile.sizePercent.coerceIn(25, 200) / 100).coerceIn(110, 500)
             val params = WindowManager.LayoutParams(
                 size,
                 size,
                 type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
-
                 val screenWidth = resources.displayMetrics.widthPixels
-                val spacing = (screenWidth / (profiles.size + 1)).coerceAtLeast(90)
-
-                x = (spacing * (index + 1) - size / 2)
-                    .coerceIn(0, (screenWidth - size).coerceAtLeast(0))
+                val spacing = (screenWidth / (profiles.size + 1)).coerceAtLeast(110)
+                x = (spacing * (index + 1) - size / 2).coerceIn(0, (screenWidth - size).coerceAtLeast(0))
                 y = (resources.displayMetrics.heightPixels * 0.58f).toInt()
             }
-
             runCatching {
                 windowManager.addView(view, params)
                 petViews += view
@@ -92,26 +76,50 @@ class AliveService : Service() {
 
     private fun checkInteractions() {
         val now = System.currentTimeMillis()
+        val alexIndex = petViews.indexOfFirst { it.templateKind == "ALEX" }
+        val ciroIndex = petViews.indexOfFirst { it.templateKind == "CIRO" }
 
+        // Prototype relationship: Ciro notices Alex, approaches him, then follows him.
+        if (alexIndex >= 0 && ciroIndex >= 0 && alexIndex != ciroIndex) {
+            val alex = petViews[alexIndex]
+            val ciro = petViews[ciroIndex]
+            val a = alex.layoutParams as? WindowManager.LayoutParams
+            val b = ciro.layoutParams as? WindowManager.LayoutParams
+            if (a != null && b != null) {
+                val ax = a.x + a.width / 2
+                val ay = a.y + a.height / 2
+                val bx = b.x + b.width / 2
+                val by = b.y + b.height / 2
+                val dx = ax - bx
+                val dy = ay - by
+                val distance = sqrt((dx * dx + dy * dy).toDouble())
+
+                if (distance <= 180.0) {
+                    ciro.stopFollowing()
+                    val pairKey = "alex:ciro"
+                    if (now - (pairInteractionTimes[pairKey] ?: 0L) > INTERACTION_COOLDOWN_MS) {
+                        pairInteractionTimes[pairKey] = now
+                        alex.startInteraction()
+                        ciro.startInteraction()
+                    }
+                } else if (distance <= 430.0) {
+                    ciro.followTarget(ax, ay, run = false)
+                } else {
+                    ciro.followTarget(ax, ay, run = true)
+                }
+            }
+        }
+
+        // Generic proximity interaction for future characters.
         for (i in petViews.indices) {
             for (j in i + 1 until petViews.size) {
+                if ((i == alexIndex && j == ciroIndex) || (i == ciroIndex && j == alexIndex)) continue
                 val a = petViews[i].layoutParams as? WindowManager.LayoutParams ?: continue
                 val b = petViews[j].layoutParams as? WindowManager.LayoutParams ?: continue
-
-                val aCenterX = a.x + a.width / 2
-                val aCenterY = a.y + a.height / 2
-                val bCenterX = b.x + b.width / 2
-                val bCenterY = b.y + b.height / 2
-
-                val dx = aCenterX - bCenterX
-                val dy = aCenterY - bCenterY
+                val dx = a.x + a.width / 2 - (b.x + b.width / 2)
+                val dy = a.y + a.height / 2 - (b.y + b.height / 2)
                 val pairKey = "$i:$j"
-                val lastTime = pairInteractionTimes[pairKey] ?: 0L
-
-                if (
-                    dx * dx + dy * dy < 150 * 150 &&
-                    now - lastTime > INTERACTION_COOLDOWN_MS
-                ) {
+                if (dx * dx + dy * dy < 150 * 150 && now - (pairInteractionTimes[pairKey] ?: 0L) > INTERACTION_COOLDOWN_MS) {
                     pairInteractionTimes[pairKey] = now
                     petViews[i].startInteraction()
                     petViews[j].startInteraction()
@@ -121,9 +129,7 @@ class AliveService : Service() {
     }
 
     private fun removePets() {
-        petViews.forEach {
-            runCatching { windowManager.removeViewImmediate(it) }
-        }
+        petViews.forEach { runCatching { windowManager.removeViewImmediate(it) } }
         petViews.clear()
     }
 
@@ -138,25 +144,17 @@ class AliveService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "S•S Alive",
-                NotificationManager.IMPORTANCE_LOW
-            )
-
-            getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
+            val channel = NotificationChannel(CHANNEL_ID, "S•S Alive", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
-    private fun buildNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentTitle("S•S Alive")
-            .setContentText("Your equipped Alives are active")
-            .setOngoing(true)
-            .build()
-    }
+    private fun buildNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_menu_compass)
+        .setContentTitle("S•S Alive")
+        .setContentText("Your equipped Alives are active")
+        .setOngoing(true)
+        .build()
 
     companion object {
         private const val INTERACTION_COOLDOWN_MS = 6000L
