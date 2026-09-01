@@ -11,7 +11,6 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 class TemplatesActivity : AppCompatActivity() {
-
     private lateinit var root: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,56 +24,48 @@ class TemplatesActivity : AppCompatActivity() {
     }
 
     private fun showTemplates() {
+        AliveRepository.removeLegacyTemplates(this)
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 64, 48, 48)
         }
-
         root.addView(TextView(this).apply {
             text = "TEMPLATES"
             textSize = 30f
         })
-
         root.addView(TextView(this).apply {
-            text = "Ready-made Alives you can equip and place on your screen."
+            text = "S•S Alive prototype characters"
             textSize = 16f
             setPadding(0, 0, 0, 24)
         })
-
-        addTemplate("CAT", "Cat")
-        addTemplate("DOG", "Dog")
-        addTemplate("CHICK", "Chick")
-
+        addTemplate("ALEX", "Alex", "The long-haired white vampire")
+        addTemplate("CIRO", "Ciro", "The strategist with the white coat")
         root.addView(Button(this).apply {
             text = "BACK"
             setOnClickListener { finish() }
         })
-
         setContentView(root)
     }
 
-    private fun addTemplate(kind: String, name: String) {
+    private fun addTemplate(kind: String, name: String, subtitle: String) {
         val profile = AliveRepository.template(this, kind)
-
         root.addView(TemplatePreviewView(this, kind).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                260
+                360
             )
         })
-
         root.addView(TextView(this).apply {
             text = name
             textSize = 22f
         })
-
+        root.addView(TextView(this).apply {
+            text = subtitle
+            textSize = 14f
+            setPadding(0, 0, 0, 8)
+        })
         root.addView(Button(this).apply {
-            text = if (AliveRepository.isEquipped(this@TemplatesActivity, profile.id)) {
-                "UNEQUIP"
-            } else {
-                "EQUIP"
-            }
-
+            text = if (AliveRepository.isEquipped(this@TemplatesActivity, profile.id)) "UNEQUIP" else "EQUIP"
             setOnClickListener {
                 if (AliveRepository.isEquipped(this@TemplatesActivity, profile.id)) {
                     AliveRepository.unequip(this@TemplatesActivity, profile.id)
@@ -87,11 +78,7 @@ class TemplatesActivity : AppCompatActivity() {
     }
 }
 
-private class TemplatePreviewView(
-    context: android.content.Context,
-    private val kind: String
-) : View(context) {
-
+private class TemplatePreviewView(context: android.content.Context, private val kind: String) : View(context) {
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.DKGRAY
         textAlign = Paint.Align.CENTER
@@ -100,30 +87,13 @@ private class TemplatePreviewView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
-        val previewSize = minOf(width, height) * 0.78f
+        val previewSize = minOf(width.toFloat(), (height - 40).toFloat()) * 0.82f
         val left = (width - previewSize) / 2f
-        val top = (height - previewSize) / 2f
-
         canvas.save()
-        canvas.translate(left, top)
+        canvas.translate(left, 0f)
         canvas.clipRect(0f, 0f, previewSize, previewSize)
-
-        BuiltInTemplateSprite.draw(
-            kind,
-            canvas,
-            0,
-            PetBehavior.State.IDLE,
-            1
-        )
-
+        BuiltInTemplateSprite.draw(kind, canvas, 0, PetBehavior.State.IDLE, 1)
         canvas.restore()
-
-        canvas.drawText(
-            kind.lowercase().replaceFirstChar { it.uppercase() } + " preview",
-            width / 2f,
-            height - 12f,
-            labelPaint
-        )
+        canvas.drawText(if (kind == "ALEX") "Alex preview" else "Ciro preview", width / 2f, height - 12f, labelPaint)
     }
 }
