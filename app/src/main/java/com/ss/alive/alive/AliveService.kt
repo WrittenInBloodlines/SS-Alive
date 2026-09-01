@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -20,11 +19,12 @@ class AliveService : Service() {
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
+    private val pairInteractionTimes = mutableMapOf<String, Long>()
 
     private val interactionRunnable = object : Runnable {
         override fun run() {
             checkInteractions()
-            interactionHandler.postDelayed(this, 700L)
+            interactionHandler.postDelayed(this, 500L)
         }
     }
 
@@ -36,13 +36,14 @@ class AliveService : Service() {
         interactionHandler.post(interactionRunnable)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: android.content.Intent?, flags: Int, startId: Int): Int {
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return START_NOT_STICKY
         }
 
         removePets()
+        pairInteractionTimes.clear()
         showPets()
         return START_STICKY
     }
@@ -77,7 +78,8 @@ class AliveService : Service() {
                 val screenWidth = resources.displayMetrics.widthPixels
                 val spacing = (screenWidth / (profiles.size + 1)).coerceAtLeast(90)
 
-                x = (spacing * (index + 1) - size / 2).coerceAtLeast(0)
+                x = (spacing * (index + 1) - size / 2)
+                    .coerceIn(0, (screenWidth - size).coerceAtLeast(0))
                 y = (resources.displayMetrics.heightPixels * 0.58f).toInt()
             }
 
@@ -89,15 +91,28 @@ class AliveService : Service() {
     }
 
     private fun checkInteractions() {
+        val now = System.currentTimeMillis()
+
         for (i in petViews.indices) {
             for (j in i + 1 until petViews.size) {
                 val a = petViews[i].layoutParams as? WindowManager.LayoutParams ?: continue
                 val b = petViews[j].layoutParams as? WindowManager.LayoutParams ?: continue
 
-                val dx = a.x - b.x
-                val dy = a.y - b.y
+                val aCenterX = a.x + a.width / 2
+                val aCenterY = a.y + a.height / 2
+                val bCenterX = b.x + b.width / 2
+                val bCenterY = b.y + b.height / 2
 
-                if (dx * dx + dy * dy < 190 * 190) {
+                val dx = aCenterX - bCenterX
+                val dy = aCenterY - bCenterY
+                val pairKey = "$i:$j"
+                val lastTime = pairInteractionTimes[pairKey] ?: 0L
+
+                if (
+                    dx * dx + dy * dy < 150 * 150 &&
+                    now - lastTime > INTERACTION_COOLDOWN_MS
+                ) {
+                    pairInteractionTimes[pairKey] = now
                     petViews[i].startInteraction()
                     petViews[j].startInteraction()
                 }
@@ -107,20 +122,19 @@ class AliveService : Service() {
 
     private fun removePets() {
         petViews.forEach {
-            runCatching {
-                windowManager.removeViewImmediate(it)
-            }
+            runCatching { windowManager.removeViewImmediate(it) }
         }
         petViews.clear()
     }
 
     override fun onDestroy() {
         interactionHandler.removeCallbacksAndMessages(null)
+        pairInteractionTimes.clear()
         removePets()
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: android.content.Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -145,6 +159,7 @@ class AliveService : Service() {
     }
 
     companion object {
+        private const val INTERACTION_COOLDOWN_MS = 6000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
