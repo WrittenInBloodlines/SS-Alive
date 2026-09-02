@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.ss.alive.account.AccountBridge
 import com.ss.alive.account.AliveAccountStore
+import com.ss.alive.account.AccountBridgeReceiver
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import org.json.JSONArray
@@ -28,6 +29,7 @@ import org.json.JSONObject
 
 class TemplatesActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
+
     private val pickTemplateImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) createTemplateWithImage(uri)
     }
@@ -35,12 +37,10 @@ class TemplatesActivity : AppCompatActivity() {
     private val templateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != AccountBridge.TEMPLATE_RESULT_ACTION) return
-            val error = intent.getStringExtra(AccountBridge.EXTRA_TEMPLATE_ERROR)
-            if (error != null) {
-                Toast.makeText(this@TemplatesActivity, "Template error: $error", Toast.LENGTH_SHORT).show()
-                return
-            }
-            renderTemplates(intent.getStringExtra(AccountBridge.EXTRA_TEMPLATE_JSON).orEmpty())
+            consumeTemplateResult(
+                intent.getStringExtra(AccountBridge.EXTRA_TEMPLATE_JSON),
+                intent.getStringExtra(AccountBridge.EXTRA_TEMPLATE_ERROR)
+            )
         }
     }
 
@@ -52,8 +52,14 @@ class TemplatesActivity : AppCompatActivity() {
         }
         setContentView(root)
         registerTemplateReceiver()
+        clearStoredTemplateResult()
         showLoading()
         AccountBridge.requestTemplates(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        consumeStoredTemplateResult()
     }
 
     override fun onDestroy() {
@@ -69,6 +75,32 @@ class TemplatesActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(templateReceiver, filter)
         }
+    }
+
+    private fun consumeStoredTemplateResult() {
+        val prefs = getSharedPreferences(AccountBridgeReceiver.TEMPLATE_RESULT_PREFS, MODE_PRIVATE)
+        val json = prefs.getString(AccountBridgeReceiver.TEMPLATE_RESULT_JSON, null)
+        val error = prefs.getString(AccountBridgeReceiver.TEMPLATE_RESULT_ERROR, null)
+        if (json == null && error == null) return
+
+        clearStoredTemplateResult()
+        consumeTemplateResult(json, error)
+    }
+
+    private fun clearStoredTemplateResult() {
+        getSharedPreferences(AccountBridgeReceiver.TEMPLATE_RESULT_PREFS, MODE_PRIVATE)
+            .edit()
+            .remove(AccountBridgeReceiver.TEMPLATE_RESULT_JSON)
+            .remove(AccountBridgeReceiver.TEMPLATE_RESULT_ERROR)
+            .apply()
+    }
+
+    private fun consumeTemplateResult(json: String?, error: String?) {
+        if (error != null) {
+            Toast.makeText(this, "Template error: $error", Toast.LENGTH_SHORT).show()
+            return
+        }
+        renderTemplates(json.orEmpty())
     }
 
     private fun showLoading() {
@@ -176,7 +208,9 @@ class TemplatesActivity : AppCompatActivity() {
         val prefs = getPreferences(MODE_PRIVATE)
         val name = prefs.getString("pending_template_name", "") ?: ""
         val description = prefs.getString("pending_template_description", "") ?: ""
-        val bitmap = runCatching { contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it) } }.getOrNull()
+        val bitmap = runCatching {
+            contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()
         if (bitmap == null) {
             Toast.makeText(this, "Could not read that image.", Toast.LENGTH_SHORT).show()
             return
@@ -188,7 +222,12 @@ class TemplatesActivity : AppCompatActivity() {
     private fun compressForTemplate(source: Bitmap): String {
         val max = 256
         val scale = minOf(1f, max.toFloat() / maxOf(source.width, source.height))
-        val scaled = Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1), (source.height * scale).toInt().coerceAtLeast(1), true)
+        val scaled = Bitmap.createScaledBitmap(
+            source,
+            (source.width * scale).toInt().coerceAtLeast(1),
+            (source.height * scale).toInt().coerceAtLeast(1),
+            true
+        )
         val out = ByteArrayOutputStream()
         scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
@@ -201,8 +240,12 @@ class TemplatesActivity : AppCompatActivity() {
             val bytes = Base64.decode(imageData, Base64.DEFAULT)
             val file = java.io.File(filesDir, "template_${UUID.randomUUID()}.jpg")
             file.writeBytes(bytes)
-            val profile = AliveProfile.empty("alive_${System.currentTimeMillis()}", item.optString("name", "Template"))
-            profile.frames.getOrPut(AliveProfile.IDLE) { mutableListOf() }.add("file://${file.absolutePath}")
+            val profile = AliveProfile.empty(
+                "alive_${System.currentTimeMillis()}",
+                item.optString("name", "Template")
+            )
+            profile.frames.getOrPut(AliveProfile.IDLE) { mutableListOf() }
+                .add("file://${file.absolutePath}")
             AliveRepository.save(this, profile)
             Toast.makeText(this, "Template added to your Alives.", Toast.LENGTH_SHORT).show()
         }.onFailure {
