@@ -2,6 +2,8 @@ package com.ss.alive.alive
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityWindowInfo
 import android.view.accessibility.AccessibilityEvent
@@ -40,13 +42,26 @@ class AliveAccessibilityService : AccessibilityService() {
 
     private fun refreshVisibleBounds() {
         val found = mutableListOf<Rect>()
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val homePackage = packageManager.resolveActivity(
+            homeIntent,
+            PackageManager.MATCH_DEFAULT_ONLY
+        )?.activityInfo?.packageName
+
+        // Platforms are allowed only on the currently selected launcher
+        // (the Android home screen), never inside ordinary applications.
+        if (homePackage.isNullOrBlank()) {
+            AlivePlatformRegistry.update(emptyList())
+            return
+        }
+
         val screenArea = resources.displayMetrics.widthPixels.toLong() *
             resources.displayMetrics.heightPixels.toLong()
         windows?.forEach { window ->
-            // Only use real app windows as platforms. System panels and other
-            // overlay windows must never become accidental landing surfaces.
             if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@forEach
             val root = window.root ?: return@forEach
+            if (root.packageName?.toString() != homePackage) return@forEach
+
             val windowBounds = Rect()
             window.getBoundsInScreen(windowBounds)
             if (windowBounds.isEmpty) return@forEach
