@@ -16,6 +16,9 @@ import androidx.core.app.NotificationCompat
 import kotlin.math.hypot
 
 class AliveService : Service() {
+    @Volatile
+    private var serviceIsRunning = false
+
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
@@ -30,6 +33,7 @@ class AliveService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        serviceIsRunning = true
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -116,6 +120,7 @@ class AliveService : Service() {
         interactionHandler.removeCallbacksAndMessages(null)
         pairCooldownUntil.clear()
         removePets()
+        serviceIsRunning = false
         super.onDestroy()
     }
 
@@ -140,5 +145,6 @@ class AliveService : Service() {
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
+        val isRunning: Boolean get() = serviceIsRunning
     }
 }
