@@ -249,6 +249,56 @@ class AliveEditorActivity : AppCompatActivity() {
         setContentView(scroll)
     }
 
+    private fun collapsibleSection(title: String, section: LinearLayout): LinearLayout {
+        val wrapper = AliveUi.column(this)
+        section.visibility = View.GONE
+        val header = AliveUi.button(this, title + "  +", false) {
+            val expanded = section.visibility != View.VISIBLE
+            section.visibility = if (expanded) View.VISIBLE else View.GONE
+            headerText(header, title, expanded)
+        }
+        wrapper.addView(header)
+        wrapper.addView(section)
+        wrapper.addView(AliveUi.gap(this, 7))
+        return wrapper
+    }
+
+    private fun headerText(header: android.widget.Button, title: String, expanded: Boolean) {
+        header.text = title + if (expanded) "  −" else "  +"
+    }
+
+    private fun addSettingSlider(
+        parent: LinearLayout,
+        title: String,
+        description: String,
+        initial: Int,
+        minimum: Int,
+        maximum: Int,
+        suffix: String = "",
+        onChanged: (Int) -> Unit
+    ) {
+        val valueLabel = AliveUi.body(this, title + "  •  " + initial + suffix, 14f)
+        parent.addView(valueLabel)
+        parent.addView(AliveUi.body(this, description, 11f))
+        val slider = SeekBar(this).apply {
+            max = maximum - minimum
+            progress = (initial - minimum).coerceIn(0, max)
+            progressTintList = ColorStateList.valueOf(AliveUi.blue)
+            thumbTintList = ColorStateList.valueOf(AliveUi.blue)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = progress + minimum
+                    valueLabel.text = title + "  •  " + value + suffix
+                    onChanged(value)
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+            })
+        }
+        parent.addView(slider)
+        parent.addView(AliveUi.gap(this, 8))
+    }
+
     private fun updateSizeLabel() {
         sizeLabel.text = "Character size  •  ${profile.sizePercent}%"
     }
