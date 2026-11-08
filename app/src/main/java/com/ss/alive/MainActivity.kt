@@ -7,7 +7,6 @@ import android.provider.Settings
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -165,8 +164,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val scroll = ScrollView(this).apply { addView(rootView) }
-        setContentView(scroll)
+        setContentView(rootView)
     }
 
     private fun confirmDelete(profile: AliveProfile) {
