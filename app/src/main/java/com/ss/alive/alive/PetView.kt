@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -18,7 +20,16 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var startY = 0
     private var dragging = false
     private val handler = Handler(Looper.getMainLooper())
-    private val behavior = PetBehavior()
+    private val behavior = PetBehavior(
+        speedPxPerTick = (4f * profile.movementSpeedPercent.coerceIn(50, 150) / 100f *
+            (0.75f + profile.energyLevel.coerceIn(0, 100) / 250f)).toInt().coerceIn(1, 8),
+        idleChance = (0.002f + profile.sleepFrequency.coerceIn(0, 100) * 0.00003f -
+            profile.energyLevel.coerceIn(0, 100) * 0.000015f).coerceIn(0.0005f, 0.005f),
+        idleDurationMultiplier = 0.7f + profile.sleepFrequency.coerceIn(0, 100) / 100f * 1.5f,
+        curiosityLevel = profile.curiosity
+    )
+    private var interactionCooldownUntil = 0L
+    private var activeSound: MediaPlayer? = null
     private val customSprite = CustomPetSprite(context, profile)
     private var animationFrame = 0
     private var lastAnimationTime = 0L
@@ -33,7 +44,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     val isBeingDragged: Boolean get() = dragging
 
     fun canStartInteraction(): Boolean {
-        return profile.interactionEnabled &&
+        return System.currentTimeMillis() >= interactionCooldownUntil &&
+            profile.interactionEnabled &&
             profile.frameUris(AliveProfile.INTERACTION).isNotEmpty() &&
             !dragging &&
             behavior.state != PetBehavior.State.HELD &&
@@ -54,6 +66,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         if (!canStartInteraction()) return false
         val now = System.currentTimeMillis()
         val ownDuration = interactionDurationMs()
+        interactionCooldownUntil = now + 10000L + (100 - profile.interactionFrequency.coerceIn(0, 100)) * 400L
         interactionAnimationUntil = now + ownDuration
         interactionUntil = now + maxOf(ownDuration, sharedDurationMs)
         behavior.setInteracting()
@@ -106,6 +119,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
 
     override fun onDetachedFromWindow() {
         handler.removeCallbacksAndMessages(null)
+        activeSound?.release()
+        activeSound = null
         super.onDetachedFromWindow()
     }
 
@@ -147,6 +162,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             if (landingSurface != null) {
                 nextY = (landingSurface.top - petHeight).coerceAtLeast(0)
                 lastAppPlatformTop = landingSurface.top
+                playConfiguredSound()
                 behavior.setAppSitting()
                 appSitUntil = System.currentTimeMillis() + APP_SIT_DURATION_MS
                 animationFrame = 0
@@ -205,6 +221,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
 
     private fun reactToTap() {
         if (behavior.state == PetBehavior.State.INTERACTING) return
+        playConfiguredSound()
         behavior.reverse()
         animationFrame = 0
         invalidate()
@@ -273,6 +290,24 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             }
         }
         return true
+    }
+
+    private fun playConfiguredSound() {
+        if (!profile.soundsEnabled || profile.soundUri.isNullOrBlank()) return
+        runCatching {
+            activeSound?.release()
+            activeSound = MediaPlayer.create(context, Uri.parse(profile.soundUri)).also { player ->
+                if (player != null) {
+                    val volume = profile.soundVolume.coerceIn(0, 100) / 100f
+                    player.setVolume(volume, volume)
+                    player.setOnCompletionListener {
+                        it.release()
+                        if (activeSound === it) activeSound = null
+                    }
+                    player.start()
+                }
+            }
+        }
     }
 
     companion object {
