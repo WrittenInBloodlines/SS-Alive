@@ -13,13 +13,12 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
-import kotlin.math.sqrt
 
 class AliveService : Service() {
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
-    private val pairInteractionTimes = mutableMapOf<String, Long>()
+    private val pairCooldownUntil = mutableMapOf<String, Long>()
 
     private val interactionRunnable = object : Runnable {
         override fun run() {
@@ -42,7 +41,7 @@ class AliveService : Service() {
             return START_NOT_STICKY
         }
         removePets()
-        pairInteractionTimes.clear()
+        pairCooldownUntil.clear()
         showPets()
         return START_STICKY
     }
@@ -76,53 +75,27 @@ class AliveService : Service() {
 
     private fun checkInteractions() {
         val now = System.currentTimeMillis()
-        val alexIndex = petViews.indexOfFirst { it.templateKind == "ALEX" }
-        val ciroIndex = petViews.indexOfFirst { it.templateKind == "CIRO" }
-
-        // Prototype relationship: Ciro notices Alex, approaches him, then follows him.
-        if (alexIndex >= 0 && ciroIndex >= 0 && alexIndex != ciroIndex) {
-            val alex = petViews[alexIndex]
-            val ciro = petViews[ciroIndex]
-            val a = alex.layoutParams as? WindowManager.LayoutParams
-            val b = ciro.layoutParams as? WindowManager.LayoutParams
-            if (a != null && b != null) {
-                val ax = a.x + a.width / 2
-                val ay = a.y + a.height / 2
-                val bx = b.x + b.width / 2
-                val by = b.y + b.height / 2
-                val dx = ax - bx
-                val dy = ay - by
-                val distance = sqrt((dx * dx + dy * dy).toDouble())
-
-                if (distance <= 180.0) {
-                    ciro.stopFollowing()
-                    val pairKey = "alex:ciro"
-                    if (now - (pairInteractionTimes[pairKey] ?: 0L) > INTERACTION_COOLDOWN_MS) {
-                        pairInteractionTimes[pairKey] = now
-                        alex.startInteraction()
-                        ciro.startInteraction()
-                    }
-                } else if (distance <= 430.0) {
-                    ciro.followTarget(ax, ay, run = false)
-                } else {
-                    ciro.followTarget(ax, ay, run = true)
-                }
-            }
-        }
-
-        // Generic proximity interaction for future characters.
         for (i in petViews.indices) {
             for (j in i + 1 until petViews.size) {
-                if ((i == alexIndex && j == ciroIndex) || (i == ciroIndex && j == alexIndex)) continue
-                val a = petViews[i].layoutParams as? WindowManager.LayoutParams ?: continue
-                val b = petViews[j].layoutParams as? WindowManager.LayoutParams ?: continue
+                val first = petViews[i]
+                val second = petViews[j]
+                if (!first.canStartInteraction() || !second.canStartInteraction()) continue
+
+                val a = first.layoutParams as? WindowManager.LayoutParams ?: continue
+                val b = second.layoutParams as? WindowManager.LayoutParams ?: continue
                 val dx = a.x + a.width / 2 - (b.x + b.width / 2)
                 val dy = a.y + a.height / 2 - (b.y + b.height / 2)
-                val pairKey = "$i:$j"
-                if (dx * dx + dy * dy < 150 * 150 && now - (pairInteractionTimes[pairKey] ?: 0L) > INTERACTION_COOLDOWN_MS) {
-                    pairInteractionTimes[pairKey] = now
-                    petViews[i].startInteraction()
-                    petViews[j].startInteraction()
+                if (dx * dx + dy * dy > INTERACTION_DISTANCE_PX * INTERACTION_DISTANCE_PX) continue
+
+                val pairKey = listOf(first.profileId, second.profileId).sorted().joinToString(":")
+                if (now < (pairCooldownUntil[pairKey] ?: 0L)) continue
+
+                // Both Alives opt in and play their own animation. The cooldown starts
+                // after the longer animation has finished, so neither gets stuck.
+                val firstDuration = first.startInteraction()
+                val secondDuration = second.startInteraction()
+                if (firstDuration > 0L && secondDuration > 0L) {
+                    pairCooldownUntil[pairKey] = now + maxOf(firstDuration, secondDuration) + INTERACTION_COOLDOWN_MS
                 }
             }
         }
@@ -135,7 +108,7 @@ class AliveService : Service() {
 
     override fun onDestroy() {
         interactionHandler.removeCallbacksAndMessages(null)
-        pairInteractionTimes.clear()
+        pairCooldownUntil.clear()
         removePets()
         super.onDestroy()
     }
@@ -157,7 +130,8 @@ class AliveService : Service() {
         .build()
 
     companion object {
-        private const val INTERACTION_COOLDOWN_MS = 6000L
+        private const val INTERACTION_DISTANCE_PX = 150
+        private const val INTERACTION_COOLDOWN_MS = 5000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
