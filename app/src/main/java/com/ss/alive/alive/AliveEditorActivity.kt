@@ -118,10 +118,12 @@ class AliveEditorActivity : AppCompatActivity() {
         updateSizeLabel()
         root.addView(AliveUi.card(this, character))
 
+        val optionalSettings = AliveUi.column(this)
+        optionalSettings.addView(AliveUi.heading(this, "Optional settings", 19f))
+        optionalSettings.addView(AliveUi.body(this, "Advanced options stay hidden until you open a section.", 12f))
+        optionalSettings.addView(AliveUi.gap(this, 10))
+
         val behavior = AliveUi.column(this)
-        behavior.addView(AliveUi.heading(this, "Behavior", 19f))
-        behavior.addView(AliveUi.body(this, "Optional settings for how this Alive behaves around others."))
-        behavior.addView(AliveUi.gap(this, 8))
         behavior.addView(CheckBox(this).apply {
             text = "Allow interactions with other Alives"
             setTextColor(AliveUi.text)
@@ -130,9 +132,7 @@ class AliveEditorActivity : AppCompatActivity() {
             setPadding(0, AliveUi.dp(this@AliveEditorActivity, 8), 0, 4)
             setOnCheckedChangeListener { _, checked -> profile.interactionEnabled = checked }
         })
-        behavior.addView(AliveUi.body(this,
-            "Both characters need this enabled and an Interaction animation to interact when they meet.", 12f))
-        behavior.addView(AliveUi.gap(this, 10))
+        behavior.addView(AliveUi.body(this, "Both characters need this enabled and an Interaction animation.", 12f))
         behavior.addView(CheckBox(this).apply {
             text = "Enable Ghost Mode"
             setTextColor(AliveUi.text)
@@ -141,9 +141,61 @@ class AliveEditorActivity : AppCompatActivity() {
             setPadding(0, AliveUi.dp(this@AliveEditorActivity, 8), 0, 4)
             setOnCheckedChangeListener { _, checked -> profile.ghostMode = checked }
         })
-        behavior.addView(AliveUi.body(this,
-            "Ghost Mode makes this Alive partly transparent and lets taps pass through it.", 12f))
-        root.addView(AliveUi.card(this, behavior))
+        behavior.addView(AliveUi.body(this, "Makes this Alive partly transparent and lets taps pass through it.", 12f))
+        optionalSettings.addView(collapsibleSection("Behavior & Ghost Mode", behavior))
+
+        val personality = AliveUi.column(this)
+        personality.addView(AliveUi.body(this, "These values affect movement, resting and interaction timing.", 12f))
+        addSettingSlider(personality, "Energy", "Higher energy means more active movement.", profile.energyLevel, 0, 100) { profile.energyLevel = it }
+        addSettingSlider(personality, "Movement speed", "Controls walking speed.", profile.movementSpeedPercent, 50, 150, "%") { profile.movementSpeedPercent = it }
+        addSettingSlider(personality, "Sleep frequency", "Controls how often and how long this Alive rests.", profile.sleepFrequency, 0, 100) { profile.sleepFrequency = it }
+        addSettingSlider(personality, "Curiosity", "Higher curiosity makes direction changes more likely.", profile.curiosity, 0, 100) { profile.curiosity = it }
+        addSettingSlider(personality, "Interaction frequency", "Controls the cooldown before another interaction.", profile.interactionFrequency, 0, 100) { profile.interactionFrequency = it }
+        optionalSettings.addView(collapsibleSection("Personality", personality))
+
+        val sounds = AliveUi.column(this)
+        sounds.addView(CheckBox(this).apply {
+            text = "Enable sound effects"
+            setTextColor(AliveUi.text)
+            buttonTintList = ColorStateList.valueOf(AliveUi.blue)
+            isChecked = profile.soundsEnabled
+            setOnCheckedChangeListener { _, checked -> profile.soundsEnabled = checked }
+        })
+        soundStatus = AliveUi.body(this, if (profile.soundUri.isNullOrBlank()) "No sound selected" else "Sound selected", 12f)
+        sounds.addView(soundStatus)
+        sounds.addView(AliveUi.button(this, "Choose sound file", false) { pickSound.launch(arrayOf("audio/*")) })
+        addSettingSlider(sounds, "Sound volume", "Volume for tap and landing effects.", profile.soundVolume, 0, 100, "%") { profile.soundVolume = it }
+        sounds.addView(AliveUi.button(this, "Preview sound", false) {
+            val uri = profile.soundUri
+            if (uri.isNullOrBlank()) {
+                Toast.makeText(this, "Choose a sound file first.", Toast.LENGTH_SHORT).show()
+            } else {
+                runCatching {
+                    MediaPlayer.create(this, Uri.parse(uri))?.also { player ->
+                        val volume = profile.soundVolume / 100f
+                        player.setVolume(volume, volume)
+                        player.setOnCompletionListener { it.release() }
+                        player.start()
+                    }
+                }.onFailure { Toast.makeText(this, "Could not play this sound.", Toast.LENGTH_SHORT).show() }
+            }
+        })
+        optionalSettings.addView(collapsibleSection("Sounds", sounds))
+
+        val sharing = AliveUi.column(this)
+        sharing.addView(AliveUi.body(this, "Packages include profile settings, animation PNGs and the selected sound.", 12f))
+        sharing.addView(AliveUi.gap(this, 8))
+        AliveUi.addButtonRow(this, sharing, listOf(
+            AliveUi.button(this, "Export package", true) {
+                val safeName = profile.name.replace(Regex("[^A-Za-z0-9_-]"), "_")
+                exportPackage.launch(safeName + ".ssalive")
+            },
+            AliveUi.button(this, "Import package", false) {
+                importPackage.launch(arrayOf("application/zip", "application/octet-stream"))
+            }
+        ))
+        optionalSettings.addView(collapsibleSection("Import & Export", sharing))
+        root.addView(AliveUi.card(this, optionalSettings))
 
         val previewCard = AliveUi.column(this)
         previewCard.addView(AliveUi.heading(this, "Animation preview", 19f))
