@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun addBack(content: LinearLayout) {
         content.addView(AliveUi.gap(this, 8))
-        content.addView(AliveUi.button(this, "←  Back to menu", false) { showHome() })
+        content.addView(AliveUi.button(this, "Back to menu", false) { showHome() })
     }
 
     private fun showHome() {
@@ -66,6 +66,9 @@ class MainActivity : AppCompatActivity() {
         })
         content.addView(AliveUi.menuTile(this, "Templates", "Browse ready-made characters.") {
             startActivity(Intent(this, TemplatesActivity::class.java))
+        })
+        content.addView(AliveUi.menuTile(this, "Personality", "Adjust how each Alive moves, rests and interacts.") {
+            showPersonality()
         })
         content.addView(AliveUi.menuTile(this, "Settings", "Permissions and screen behavior.") {
             showSettings()
@@ -109,6 +112,38 @@ class MainActivity : AppCompatActivity() {
             content.addView(AliveUi.card(this, empty))
         } else {
             personalAlives.forEach { content.addView(aliveCard(it)) }
+        }
+        addBack(content)
+        setContentView(scroll)
+    }
+
+    private fun showPersonality() {
+        val (scroll, content) = AliveUi.scrollPage(this)
+        rootView = content
+        pageHeader(content, "PERSONALITY", "Personality", "Choose an Alive to customize its individual behavior.")
+        val profiles = AliveRepository.all(this).filter { !it.isTemplate }
+        if (profiles.isEmpty()) {
+            val empty = AliveUi.column(this)
+            empty.addView(AliveUi.heading(this, "No Alives yet", 18f))
+            empty.addView(AliveUi.body(this, "Create an Alive first, then its personality can be customized here."))
+            empty.addView(AliveUi.gap(this, 10))
+            empty.addView(AliveUi.button(this, "Create an Alive", true) {
+                startActivity(Intent(this, AliveEditorActivity::class.java))
+            })
+            content.addView(AliveUi.card(this, empty))
+        } else {
+            profiles.forEach { profile ->
+                val item = AliveUi.column(this)
+                item.addView(AliveUi.heading(this, profile.name, 17f))
+                item.addView(AliveUi.body(this, "Energy " + profile.energyLevel + "  •  Speed " +
+                    profile.movementSpeedPercent + "%  •  Sleep " + profile.sleepFrequency, 12f))
+                item.addView(AliveUi.gap(this, 8))
+                item.addView(AliveUi.button(this, "Customize personality", true) {
+                    startActivity(Intent(this, AliveEditorActivity::class.java)
+                        .putExtra(AliveEditorActivity.EXTRA_ID, profile.id))
+                })
+                content.addView(AliveUi.card(this, item))
+            }
         }
         addBack(content)
         setContentView(scroll)
