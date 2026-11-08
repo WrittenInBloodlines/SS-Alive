@@ -136,7 +136,10 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                         rect.top != lastAppPlatformTop &&
                         rect.left < params.x + petWidth &&
                         rect.right > params.x &&
-                        rect.top >= previousY - 8 &&
+                        // A surface is valid only if the pet's bottom crosses its
+                        // top edge while falling. This prevents snapping upward
+                        // onto a control that is already beside/inside the pet.
+                        rect.top >= previousY + petHeight - 8 &&
                         rect.top <= newBottom
                 }
                 .minByOrNull { it.top }
