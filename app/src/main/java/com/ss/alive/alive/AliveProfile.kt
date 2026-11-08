@@ -9,6 +9,7 @@ data class AliveProfile(
     var isTemplate: Boolean = false,
     var templateKind: String = "CUSTOM",
     var sizePercent: Int = 55,
+    var interactionEnabled: Boolean = false,
     val frames: MutableMap<String, MutableList<String>> = mutableMapOf(),
     val speedsFps: MutableMap<String, Int> = mutableMapOf()
 ) {
@@ -22,7 +23,8 @@ data class AliveProfile(
         const val LANDING = "LANDING"
         const val HELD = "HELD"
         const val CLIMB = "CLIMB"
-        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB)
+        const val INTERACTION = "INTERACTION"
+        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB, INTERACTION)
         const val DEFAULT_FPS = 10
 
         fun empty(id: String, name: String): AliveProfile = AliveProfile(id, name)
@@ -33,8 +35,9 @@ data class AliveProfile(
                 id = root.getString("id"),
                 name = root.getString("name"),
                 isTemplate = root.optBoolean("template", false),
-                templateKind = root.optString("templateKind", "CUSTOM"),
-                sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200)
+                templateKind = "CUSTOM",
+                sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200),
+                interactionEnabled = root.optBoolean("interactionEnabled", false)
             )
             val frameObject = root.optJSONObject("frames")
             STATES.forEach { state ->
@@ -62,8 +65,9 @@ data class AliveProfile(
             put("id", id)
             put("name", name)
             put("template", isTemplate)
-            put("templateKind", templateKind)
+            put("templateKind", "CUSTOM")
             put("sizePercent", sizePercent.coerceIn(25, 200))
+            put("interactionEnabled", interactionEnabled)
         }
         val frameObject = JSONObject()
         frames.forEach { (state, uris) ->
