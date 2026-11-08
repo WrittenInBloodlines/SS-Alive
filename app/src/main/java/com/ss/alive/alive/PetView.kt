@@ -293,10 +293,11 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     }
 
     private fun playConfiguredSound() {
-        if (!profile.soundsEnabled || profile.soundUri.isNullOrBlank()) return
+        val soundUri = profile.soundUri
+        if (!profile.soundsEnabled || soundUri.isNullOrBlank()) return
         runCatching {
             activeSound?.release()
-            activeSound = MediaPlayer.create(context, Uri.parse(profile.soundUri)).also { player ->
+            activeSound = MediaPlayer.create(context, Uri.parse(soundUri)).also { player ->
                 if (player != null) {
                     val volume = profile.soundVolume.coerceIn(0, 100) / 100f
                     player.setVolume(volume, volume)
