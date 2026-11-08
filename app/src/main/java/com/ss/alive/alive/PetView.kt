@@ -3,6 +3,7 @@ package com.ss.alive.alive
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -25,6 +26,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var lastDirection = behavior.direction
     private var interactionUntil = 0L
     private var interactionAnimationUntil = 0L
+    private var appSitUntil = 0L
 
     val profileId: String get() = profile.id
     val isBeingDragged: Boolean get() = dragging
@@ -37,7 +39,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             behavior.state != PetBehavior.State.FALLING &&
             behavior.state != PetBehavior.State.JUMP &&
             behavior.state != PetBehavior.State.LANDING &&
-            behavior.state != PetBehavior.State.INTERACTING
+            behavior.state != PetBehavior.State.INTERACTING &&
+            behavior.state != PetBehavior.State.APP_SIT
     }
 
     fun interactionDurationMs(): Long {
@@ -62,15 +65,23 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private val animationRunnable = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
-            if (behavior.state == PetBehavior.State.INTERACTING) {
-                if (now >= interactionUntil) {
-                    interactionUntil = 0L
-                    interactionAnimationUntil = 0L
-                    behavior.resumeWalking()
-                    animationFrame = 0
+            when {
+                behavior.state == PetBehavior.State.INTERACTING -> {
+                    if (now >= interactionUntil) {
+                        interactionUntil = 0L
+                        interactionAnimationUntil = 0L
+                        behavior.resumeWalking()
+                        animationFrame = 0
+                    }
                 }
-            } else if (!dragging) {
-                movePet()
+                behavior.state == PetBehavior.State.APP_SIT -> {
+                    if (now >= appSitUntil) {
+                        behavior.resumeFromAppSitting()
+                        appSitUntil = 0L
+                        animationFrame = 0
+                    }
+                }
+                !dragging -> movePet()
             }
             updateSpriteFrame()
             invalidate()
@@ -82,6 +93,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         setBackgroundColor(Color.TRANSPARENT)
         isClickable = true
         isFocusable = false
+        alpha = if (profile.ghostMode) 0.35f else 1f
         setLayerType(View.LAYER_TYPE_SOFTWARE, null)
     }
 
@@ -108,10 +120,37 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val screenHeight = resources.displayMetrics.heightPixels
         val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
         val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
+        val previousY = params.y
+        val previousState = behavior.state
         val position = behavior.step(params.x, params.y, petWidth, petHeight, screenWidth, screenHeight)
-        if (position.x != params.x || position.y != params.y) {
-            params.x = position.x
-            params.y = position.y
+        var nextX = position.x
+        var nextY = position.y
+
+        if (previousState == PetBehavior.State.FALLING && nextY > previousY) {
+            val oldBottom = previousY + petHeight
+            val newBottom = nextY + petHeight
+            val landingSurface = AlivePlatformRegistry.snapshot()
+                .asSequence()
+                .filter { rect ->
+                    rect.top > 0 &&
+                        rect.left < params.x + petWidth &&
+                        rect.right > params.x &&
+                        oldBottom <= rect.top + 8 &&
+                        newBottom >= rect.top
+                }
+                .minByOrNull { it.top }
+
+            if (landingSurface != null) {
+                nextY = (landingSurface.top - petHeight).coerceAtLeast(0)
+                behavior.setAppSitting()
+                appSitUntil = System.currentTimeMillis() + APP_SIT_DURATION_MS
+                animationFrame = 0
+            }
+        }
+
+        if (nextX != params.x || nextY != params.y) {
+            params.x = nextX
+            params.y = nextY
             runCatching { wm.updateViewLayout(this, params) }
         }
     }
@@ -136,6 +175,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             PetBehavior.State.LANDING -> AliveProfile.LANDING
             PetBehavior.State.HELD -> AliveProfile.HELD
             PetBehavior.State.INTERACTING -> AliveProfile.INTERACTION
+            PetBehavior.State.APP_SIT -> if (profile.frameUris(AliveProfile.APP_SIT).isNotEmpty()) AliveProfile.APP_SIT else AliveProfile.SIT
         }
         if (behavior.state == PetBehavior.State.INTERACTING && now >= interactionAnimationUntil) return
 
@@ -176,8 +216,10 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val maxY = (screenHeight - petHeight).coerceAtLeast(0)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = event.rawX; downY = event.rawY
-                startX = params.x; startY = params.y
+                downX = event.rawX
+                downY = event.rawY
+                startX = params.x
+                startY = params.y
                 dragging = false
                 return true
             }
@@ -219,5 +261,9 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             }
         }
         return true
+    }
+
+    companion object {
+        private const val APP_SIT_DURATION_MS = 10000L
     }
 }
