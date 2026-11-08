@@ -35,7 +35,7 @@ data class AliveProfile(
                 id = root.getString("id"),
                 name = root.getString("name"),
                 isTemplate = root.optBoolean("template", false),
-                templateKind = "CUSTOM",
+                templateKind = root.optString("templateKind", "CUSTOM"),
                 sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200),
                 interactionEnabled = root.optBoolean("interactionEnabled", false)
             )
@@ -144,7 +144,18 @@ object AliveRepository {
         edit.apply()
     }
 
-    fun removeLegacyTemplates(c: Context) {
-        listOf("template_cat", "template_dog", "template_chick", "template_alex", "template_ciro").forEach { delete(c, it) }
+    /** Remove only the old built-in Alex/Ciro template entries, never user-created Alives. */
+    fun removeLegacyAlexCiroTemplates(c: Context) {
+        val prefs = c.getSharedPreferences(PREFS, 0)
+        val ids = prefs.getStringSet(KEY_IDS, emptySet()).orEmpty().toList()
+        ids.forEach { id ->
+            val raw = prefs.getString("profile_$id", null)
+            val legacyTemplate = runCatching {
+                val json = JSONObject(raw ?: return@runCatching false)
+                val kind = json.optString("templateKind", "").uppercase()
+                json.optBoolean("template", false) && kind in setOf("ALEX", "CIRO")
+            }.getOrDefault(false)
+            if (legacyTemplate || id == "template_alex" || id == "template_ciro") delete(c, id)
+        }
     }
 }
