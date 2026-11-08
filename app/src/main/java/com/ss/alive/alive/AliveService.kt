@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import kotlin.math.hypot
 
 class AliveService : Service() {
     private lateinit var windowManager: WindowManager
@@ -53,11 +54,13 @@ class AliveService : Service() {
             val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
             val baseSize = 250
             val size = (baseSize * profile.sizePercent.coerceIn(25, 200) / 100).coerceIn(110, 500)
+            val touchFlags = if (profile.ghostMode) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0
             val params = WindowManager.LayoutParams(
                 size,
                 size,
                 type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or touchFlags,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
@@ -83,19 +86,21 @@ class AliveService : Service() {
 
                 val a = first.layoutParams as? WindowManager.LayoutParams ?: continue
                 val b = second.layoutParams as? WindowManager.LayoutParams ?: continue
-                val dx = a.x + a.width / 2 - (b.x + b.width / 2)
-                val dy = a.y + a.height / 2 - (b.y + b.height / 2)
-                if (dx * dx + dy * dy > INTERACTION_DISTANCE_PX * INTERACTION_DISTANCE_PX) continue
+
+                // Measure the empty gap between the rendered rectangles, not their centers.
+                // Since each rectangle already includes sizePercent, larger Alives get a
+                // proportionally larger approach distance without touching first.
+                val gapX = maxOf(0, maxOf(a.x - (b.x + b.width), b.x - (a.x + a.width)))
+                val gapY = maxOf(0, maxOf(a.y - (b.y + b.height), b.y - (a.y + a.height)))
+                val gap = hypot(gapX.toDouble(), gapY.toDouble())
+                val approachMargin = maxOf(28.0, (a.width + b.width) * 0.10)
+                if (gap > approachMargin) continue
 
                 val pairKey = listOf(first.profileId, second.profileId).sorted().joinToString(":")
                 if (now < (pairCooldownUntil[pairKey] ?: 0L)) continue
 
-                // Both Alives opt in and play their own animation. Keep both stopped
-                // until the longer animation ends, then wait five more seconds.
                 val sharedDuration = maxOf(first.interactionDurationMs(), second.interactionDurationMs())
-                val firstStarted = first.startInteraction(sharedDuration)
-                val secondStarted = second.startInteraction(sharedDuration)
-                if (firstStarted && secondStarted) {
+                if (first.startInteraction(sharedDuration) && second.startInteraction(sharedDuration)) {
                     pairCooldownUntil[pairKey] = now + sharedDuration + INTERACTION_COOLDOWN_MS
                 }
             }
@@ -131,7 +136,6 @@ class AliveService : Service() {
         .build()
 
     companion object {
-        private const val INTERACTION_DISTANCE_PX = 150
         private const val INTERACTION_COOLDOWN_MS = 5000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         private const val CHANNEL_ID = "ss_alive"
