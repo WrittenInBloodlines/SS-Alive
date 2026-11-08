@@ -94,7 +94,7 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     fun setSitting() { state = State.SIT }
     fun setInteracting() { state = State.INTERACTING; velocityY = 0f }
     fun setAppSitting() { state = State.APP_SIT; velocityY = 0f }
-    fun resumeFromAppSitting() { if (state == State.APP_SIT) { state = State.WALKING; routeSegment = 0 } }
+    fun resumeFromAppSitting() { if (state == State.APP_SIT) { state = State.FALLING; velocityY = 0f } }
     fun jump() { if (state != State.FALLING && state != State.HELD && state != State.INTERACTING) { state = State.JUMP; velocityY = -14f } }
     private fun randomIdleDuration(): Int = Random.nextInt(25, 110)
     data class Position(val x: Int, val y: Int)
