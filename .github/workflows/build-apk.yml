@@ -3,7 +3,7 @@ name: Build S•S Alive APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, 'feature/**' ]
 
 jobs:
   build:
