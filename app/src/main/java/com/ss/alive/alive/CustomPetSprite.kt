@@ -43,6 +43,7 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
         PetBehavior.State.LANDING -> AliveProfile.LANDING
         PetBehavior.State.HELD -> AliveProfile.HELD
         PetBehavior.State.INTERACTING -> AliveProfile.INTERACTION
+        PetBehavior.State.APP_SIT -> AliveProfile.APP_SIT
     }
 
     private fun loadFrames(state: String): List<Bitmap> {
