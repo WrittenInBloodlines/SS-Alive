@@ -13,16 +13,16 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 
 object AliveUi {
-    // Minimal dark palette: true black canvas, quiet charcoal surfaces, one clear accent.
+    // S•S Alive: pure black canvas with restrained midnight-blue surfaces.
     val background = Color.rgb(0, 0, 0)
-    val surface = Color.rgb(16, 17, 19)
-    val surfaceRaised = Color.rgb(25, 27, 31)
-    val blue = Color.rgb(105, 160, 255)
-    val blueSoft = Color.rgb(29, 48, 76)
-    val text = Color.rgb(246, 247, 249)
-    val muted = Color.rgb(157, 163, 174)
-    val border = Color.rgb(39, 42, 48)
-    val success = Color.rgb(115, 205, 157)
+    val surface = Color.rgb(7, 13, 25)
+    val surfaceRaised = Color.rgb(11, 21, 39)
+    val blue = Color.rgb(91, 145, 220)
+    val blueSoft = Color.rgb(18, 39, 68)
+    val text = Color.rgb(240, 244, 250)
+    val muted = Color.rgb(137, 151, 172)
+    val border = Color.rgb(24, 43, 68)
+    val success = Color.rgb(105, 177, 153)
 
     fun dp(context: Context, value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
@@ -116,6 +116,41 @@ object AliveUi {
             }
             setOnClickListener { onClick() }
         }
+
+    fun menuTile(
+        context: Context,
+        title: String,
+        description: String,
+        onClick: () -> Unit
+    ): MaterialCardView = MaterialCardView(context).apply {
+        radius = dp(context, 18).toFloat()
+        cardElevation = 0f
+        setCardBackgroundColor(surface)
+        strokeColor = border
+        strokeWidth = dp(context, 1)
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { onClick() }
+
+        val line = row(context)
+        line.setPadding(dp(context, 18), dp(context, 17), dp(context, 16), dp(context, 17))
+        val words = column(context)
+        words.addView(heading(context, title, 17f))
+        words.addView(gap(context, 3))
+        words.addView(body(context, description, 12f))
+        line.addView(words, LinearLayout.LayoutParams(0, -2, 1f))
+        val arrow = TextView(context).apply {
+            text = "›"
+            textSize = 30f
+            setTextColor(blue)
+            gravity = Gravity.CENTER
+        }
+        line.addView(arrow, LinearLayout.LayoutParams(dp(context, 28), -2))
+        addView(line, ViewGroup.LayoutParams(-1, -2))
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(context, 11)
+        }
+    }
 
     fun gap(context: Context, height: Int = 10): View =
         View(context).apply { layoutParams = LinearLayout.LayoutParams(1, dp(context, height)) }
