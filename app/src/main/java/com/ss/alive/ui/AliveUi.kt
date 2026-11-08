@@ -1,5 +1,6 @@
 package com.ss.alive.ui
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.view.Gravity
@@ -10,7 +11,6 @@ import android.widget.TextView
 import androidx.core.view.setPadding
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import android.content.Context
 
 object AliveUi {
     // Minimal dark palette: true black canvas, quiet charcoal surfaces, one clear accent.
@@ -30,14 +30,14 @@ object AliveUi {
     fun page(context: Context): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(context, 20))
-        setBackgroundColor(background)
+        setBackgroundColor(AliveUi.background)
     }
 
     fun scrollPage(context: Context): Pair<android.widget.ScrollView, LinearLayout> {
         val content = page(context)
         val scroll = android.widget.ScrollView(context).apply {
             isFillViewport = true
-            setBackgroundColor(background)
+            setBackgroundColor(AliveUi.background)
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(content, ViewGroup.LayoutParams(-1, -2))
@@ -49,7 +49,7 @@ object AliveUi {
         TextView(context).apply {
             text = value
             textSize = size
-            setTextColor(text)
+            setTextColor(AliveUi.text)
             gravity = Gravity.START
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         }
@@ -58,7 +58,7 @@ object AliveUi {
         TextView(context).apply {
             text = value
             textSize = size
-            setTextColor(muted)
+            setTextColor(AliveUi.muted)
             gravity = Gravity.START
             setLineSpacing(dp(context, 3).toFloat(), 1f)
         }
@@ -68,7 +68,7 @@ object AliveUi {
             text = value.uppercase()
             textSize = 11f
             letterSpacing = 0.12f
-            setTextColor(blue)
+            setTextColor(AliveUi.blue)
             gravity = Gravity.START
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         }
@@ -108,7 +108,7 @@ object AliveUi {
             insetTop = 0
             insetBottom = 0
             minimumHeight = dp(context, 48)
-            setTextColor(if (primary) Color.rgb(8, 13, 22) else text)
+            setTextColor(if (primary) Color.rgb(8, 13, 22) else AliveUi.text)
             backgroundTintList = ColorStateList.valueOf(if (primary) blue else surfaceRaised)
             if (!primary) {
                 strokeColor = ColorStateList.valueOf(border)
