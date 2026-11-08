@@ -90,12 +90,13 @@ class AliveService : Service() {
                 val pairKey = listOf(first.profileId, second.profileId).sorted().joinToString(":")
                 if (now < (pairCooldownUntil[pairKey] ?: 0L)) continue
 
-                // Both Alives opt in and play their own animation. The cooldown starts
-                // after the longer animation has finished, so neither gets stuck.
-                val firstDuration = first.startInteraction()
-                val secondDuration = second.startInteraction()
-                if (firstDuration > 0L && secondDuration > 0L) {
-                    pairCooldownUntil[pairKey] = now + maxOf(firstDuration, secondDuration) + INTERACTION_COOLDOWN_MS
+                // Both Alives opt in and play their own animation. Keep both stopped
+                // until the longer animation ends, then wait five more seconds.
+                val sharedDuration = maxOf(first.interactionDurationMs(), second.interactionDurationMs())
+                val firstStarted = first.startInteraction(sharedDuration)
+                val secondStarted = second.startInteraction(sharedDuration)
+                if (firstStarted && secondStarted) {
+                    pairCooldownUntil[pairKey] = now + sharedDuration + INTERACTION_COOLDOWN_MS
                 }
             }
         }
