@@ -118,6 +118,45 @@ class AliveEditorActivity : AppCompatActivity() {
         updateSizeLabel()
         root.addView(AliveUi.card(this, character))
 
+        val previewCard = AliveUi.column(this)
+        previewCard.addView(AliveUi.heading(this, "Animation preview", 19f))
+        previewStateLabel = AliveUi.body(this, "Choose an animation below to preview it.", 13f)
+        previewCard.addView(previewStateLabel)
+        previewCard.addView(AliveUi.gap(this, 8))
+        preview = AnimatedFramePreview(this).apply {
+            setBackgroundColor(AliveUi.surfaceRaised)
+            setPadding(AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12))
+        }
+        previewCard.addView(preview, LinearLayout.LayoutParams(-1, AliveUi.dp(this, 220)))
+        root.addView(AliveUi.card(this, previewCard))
+
+        root.addView(AliveUi.heading(this, "Animations", 22f))
+        root.addView(AliveUi.body(this,
+            "Add PNG frames for each movement. You can preview each animation before saving."))
+        root.addView(AliveUi.gap(this, 12))
+
+        AliveProfile.STATES.forEach { state ->
+            val section = AliveUi.column(this)
+            val title = when (state) {
+                AliveProfile.INTERACTION -> "Interaction"
+                AliveProfile.APP_SIT -> "Home-screen landing"
+                else -> state.titleCase()
+            }
+            section.addView(AliveUi.heading(this, title, 17f))
+            val description = when (state) {
+                AliveProfile.INTERACTION -> "Played when this Alive interacts with another."
+                AliveProfile.APP_SIT -> "Played when this Alive lands on an app icon on the home screen."
+                else -> "Frames used for the ${state.titleCase().lowercase()} animation."
+            }
+            section.addView(AliveUi.body(this, description, 12f))
+            section.addView(AliveUi.gap(this, 8))
+            val row = AliveUi.column(this)
+            stateRows[state] = row
+            section.addView(row)
+            root.addView(AliveUi.card(this, section))
+            refreshState(state)
+        }
+
         val optionalSettings = AliveUi.column(this)
         optionalSettings.addView(AliveUi.heading(this, "Optional settings", 19f))
         optionalSettings.addView(AliveUi.body(this, "Advanced options stay hidden until you open a section.", 12f))
@@ -187,6 +226,7 @@ class AliveEditorActivity : AppCompatActivity() {
         sharing.addView(AliveUi.gap(this, 8))
         AliveUi.addButtonRow(this, sharing, listOf(
             AliveUi.button(this, "Export package", true) {
+                profile.name = nameInput.text.toString().trim().ifEmpty { "Alive 1" }
                 val safeName = profile.name.replace(Regex("[^A-Za-z0-9_-]"), "_")
                 exportPackage.launch(safeName + ".ssalive")
             },
@@ -196,45 +236,6 @@ class AliveEditorActivity : AppCompatActivity() {
         ))
         optionalSettings.addView(collapsibleSection("Import & Export", sharing))
         root.addView(AliveUi.card(this, optionalSettings))
-
-        val previewCard = AliveUi.column(this)
-        previewCard.addView(AliveUi.heading(this, "Animation preview", 19f))
-        previewStateLabel = AliveUi.body(this, "Choose an animation below to preview it.", 13f)
-        previewCard.addView(previewStateLabel)
-        previewCard.addView(AliveUi.gap(this, 8))
-        preview = AnimatedFramePreview(this).apply {
-            setBackgroundColor(AliveUi.surfaceRaised)
-            setPadding(AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12))
-        }
-        previewCard.addView(preview, LinearLayout.LayoutParams(-1, AliveUi.dp(this, 220)))
-        root.addView(AliveUi.card(this, previewCard))
-
-        root.addView(AliveUi.heading(this, "Animations", 22f))
-        root.addView(AliveUi.body(this,
-            "Add PNG frames for each movement. You can preview each animation before saving."))
-        root.addView(AliveUi.gap(this, 12))
-
-        AliveProfile.STATES.forEach { state ->
-            val section = AliveUi.column(this)
-            val title = when (state) {
-                AliveProfile.INTERACTION -> "Interaction"
-                AliveProfile.APP_SIT -> "Home-screen landing"
-                else -> state.titleCase()
-            }
-            section.addView(AliveUi.heading(this, title, 17f))
-            val description = when (state) {
-                AliveProfile.INTERACTION -> "Played when this Alive interacts with another."
-                AliveProfile.APP_SIT -> "Played when this Alive lands on an app icon on the home screen."
-                else -> "Frames used for the ${state.titleCase().lowercase()} animation."
-            }
-            section.addView(AliveUi.body(this, description, 12f))
-            section.addView(AliveUi.gap(this, 8))
-            val row = AliveUi.column(this)
-            stateRows[state] = row
-            section.addView(row)
-            root.addView(AliveUi.card(this, section))
-            refreshState(state)
-        }
 
         root.addView(AliveUi.gap(this, 4))
         AliveUi.addButtonRow(this, root, listOf(
