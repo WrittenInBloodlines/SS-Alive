@@ -128,7 +128,7 @@ class AliveEditorActivity : AppCompatActivity() {
         previewCard.addView(AliveUi.gap(this, 8))
         preview = AnimatedFramePreview(this).apply {
             setBackgroundColor(AliveUi.surfaceRaised)
-            setPadding(AliveUi.dp(this@AliveEditorActivity, 12))
+            setPadding(AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12))
         }
         previewCard.addView(preview, LinearLayout.LayoutParams(-1, AliveUi.dp(this, 220)))
         root.addView(AliveUi.card(this, previewCard))
