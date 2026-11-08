@@ -3,7 +3,12 @@ package com.ss.alive.alive
 import kotlin.math.abs
 import kotlin.random.Random
 
-class PetBehavior(var speedPxPerTick: Int = 4) {
+class PetBehavior(
+    var speedPxPerTick: Int = 4,
+    private val idleChance: Float = 0.0015f,
+    private val idleDurationMultiplier: Float = 1f,
+    private val curiosityLevel: Int = 50
+) {
     enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD, INTERACTING, APP_SIT }
 
     var direction: Int = 1
@@ -52,10 +57,13 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
                 return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
             }
             state = State.WALKING
-        } else if (Random.nextFloat() < 0.0015f) {
+        } else if (Random.nextFloat() < idleChance) {
             state = State.IDLE
             idleTicksRemaining = randomIdleDuration()
             return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
+        }
+        if (state == State.WALKING && Random.nextFloat() < curiosityLevel.coerceIn(0, 100) * 0.000002f) {
+            direction *= -1
         }
         val stepSize = if (state == State.RUNNING) (speedPxPerTick * 2).coerceAtLeast(2) else speedPxPerTick.coerceAtLeast(1)
         var x = currentX
@@ -96,6 +104,6 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     fun setAppSitting() { state = State.APP_SIT; velocityY = 0f }
     fun resumeFromAppSitting() { if (state == State.APP_SIT) { state = State.FALLING; velocityY = 0f } }
     fun jump() { if (state != State.FALLING && state != State.HELD && state != State.INTERACTING) { state = State.JUMP; velocityY = -14f } }
-    private fun randomIdleDuration(): Int = Random.nextInt(25, 110)
+    private fun randomIdleDuration(): Int = (Random.nextInt(25, 110) * idleDurationMultiplier.coerceIn(0.5f, 2.5f)).toInt().coerceAtLeast(10)
     data class Position(val x: Int, val y: Int)
 }
