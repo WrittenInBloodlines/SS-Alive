@@ -9,6 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
+import android.media.MediaPlayer
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -34,6 +36,28 @@ class AliveEditorActivity : AppCompatActivity() {
     private lateinit var sizeLabel: TextView
     private lateinit var preview: AnimatedFramePreview
     private lateinit var previewStateLabel: TextView
+    private lateinit var soundStatus: TextView
+    private val exportPackage = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        if (uri != null) runCatching { AlivePackageManager.export(this, profile, uri) }
+            .onSuccess { Toast.makeText(this, "Alive package exported.", Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(this, "Export failed: " + (it.message ?: "unknown error"), Toast.LENGTH_LONG).show() }
+    }
+    private val importPackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) runCatching { AlivePackageManager.import(this, uri) }
+            .onSuccess { imported ->
+                AliveRepository.save(this, imported)
+                Toast.makeText(this, imported.name + " imported.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+            .onFailure { Toast.makeText(this, "Import failed: " + (it.message ?: "invalid package"), Toast.LENGTH_LONG).show() }
+    }
+    private val pickSound = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            profile.soundUri = uri.toString()
+            if (::soundStatus.isInitialized) soundStatus.text = "Sound selected"
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
