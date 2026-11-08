@@ -26,7 +26,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         idleChance = (0.002f + profile.sleepFrequency.coerceIn(0, 100) * 0.00003f -
             profile.energyLevel.coerceIn(0, 100) * 0.000015f).coerceIn(0.0005f, 0.005f),
         idleDurationMultiplier = 0.7f + profile.sleepFrequency.coerceIn(0, 100) / 100f * 1.5f,
-        curiosityLevel = profile.curiosity
+        curiosityLevel = profile.curiosity,
+        gravityMultiplier = profile.gravityStrengthPercent.coerceIn(50, 150) / 100f
     )
     private var interactionCooldownUntil = 0L
     private var activeSound: MediaPlayer? = null
