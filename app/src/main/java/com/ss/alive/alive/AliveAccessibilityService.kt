@@ -3,6 +3,7 @@ package com.ss.alive.alive
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.graphics.Rect
+import android.view.accessibility.AccessibilityWindowInfo
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -42,8 +43,14 @@ class AliveAccessibilityService : AccessibilityService() {
         val screenArea = resources.displayMetrics.widthPixels.toLong() *
             resources.displayMetrics.heightPixels.toLong()
         windows?.forEach { window ->
+            // Only use real app windows as platforms. System panels and other
+            // overlay windows must never become accidental landing surfaces.
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@forEach
             val root = window.root ?: return@forEach
-            collectClickableBounds(root, found, screenArea, 0)
+            val windowBounds = Rect()
+            window.getBoundsInScreen(windowBounds)
+            if (windowBounds.isEmpty) return@forEach
+            collectClickableBounds(root, found, screenArea, windowBounds, 0)
         }
         AlivePlatformRegistry.update(found)
     }
@@ -52,22 +59,25 @@ class AliveAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         output: MutableList<Rect>,
         screenArea: Long,
+        windowBounds: Rect,
         depth: Int
     ) {
         if (depth > 14 || output.size >= 180) return
         if (node.isVisibleToUser && node.isClickable) {
             val bounds = Rect()
             node.getBoundsInScreen(bounds)
-            val area = bounds.width().toLong() * bounds.height().toLong()
-            if (bounds.width() >= 48 && bounds.height() >= 24 &&
-                area > 0 && area < screenArea * 0.65
-            ) {
-                output += bounds
+            if (bounds.intersect(windowBounds)) {
+                val area = bounds.width().toLong() * bounds.height().toLong()
+                if (bounds.width() >= 48 && bounds.height() >= 24 &&
+                    area > 0 && area < screenArea * 0.65
+                ) {
+                    output += bounds
+                }
             }
         }
         for (index in 0 until node.childCount) {
             node.getChild(index)?.let { child ->
-                collectClickableBounds(child, output, screenArea, depth + 1)
+                collectClickableBounds(child, output, screenArea, windowBounds, depth + 1)
             }
         }
     }
