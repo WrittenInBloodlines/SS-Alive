@@ -55,8 +55,9 @@ class AliveAccessibilityService : AccessibilityService() {
             return
         }
 
-        val screenArea = resources.displayMetrics.widthPixels.toLong() *
-            resources.displayMetrics.heightPixels.toLong()
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        val screenArea = screenWidth.toLong() * screenHeight.toLong()
         windows?.forEach { window ->
             if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@forEach
             val root = window.root ?: return@forEach
@@ -65,7 +66,7 @@ class AliveAccessibilityService : AccessibilityService() {
             val windowBounds = Rect()
             window.getBoundsInScreen(windowBounds)
             if (windowBounds.isEmpty) return@forEach
-            collectClickableBounds(root, found, screenArea, windowBounds, 0)
+            collectClickableBounds(root, found, screenArea, screenWidth, screenHeight, windowBounds, 0)
         }
         AlivePlatformRegistry.update(found)
     }
@@ -74,6 +75,8 @@ class AliveAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         output: MutableList<Rect>,
         screenArea: Long,
+        screenWidth: Int,
+        screenHeight: Int,
         windowBounds: Rect,
         depth: Int
     ) {
@@ -83,7 +86,15 @@ class AliveAccessibilityService : AccessibilityService() {
             node.getBoundsInScreen(bounds)
             if (bounds.intersect(windowBounds)) {
                 val area = bounds.width().toLong() * bounds.height().toLong()
-                if (bounds.width() >= 48 && bounds.height() >= 24 &&
+                // Launchers can expose the empty bottom dock/hotseat as one
+                // large clickable strip. It is not an app icon or a surface,
+                // so ignore broad, shallow controls while retaining individual
+                // icon and widget bounds (their child nodes are still visited).
+                val isWideLauncherStrip =
+                    bounds.width() >= screenWidth * 0.70f &&
+                    bounds.height() <= screenHeight * 0.22f
+                if (!isWideLauncherStrip &&
+                    bounds.width() >= 48 && bounds.height() >= 24 &&
                     area > 0 && area < screenArea * 0.65
                 ) {
                     output += bounds
@@ -92,7 +103,7 @@ class AliveAccessibilityService : AccessibilityService() {
         }
         for (index in 0 until node.childCount) {
             node.getChild(index)?.let { child ->
-                collectClickableBounds(child, output, screenArea, windowBounds, depth + 1)
+                collectClickableBounds(child, output, screenArea, screenWidth, screenHeight, windowBounds, depth + 1)
             }
         }
     }
