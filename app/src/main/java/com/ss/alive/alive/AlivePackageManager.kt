@@ -19,6 +19,7 @@ object AlivePackageManager {
 
     fun export(context: Context, profile: AliveProfile, destination: Uri) {
         val root = JSONObject(profile.toJson())
+        root.put("packageVersion", 1)
         val frameObject = root.optJSONObject("frames") ?: JSONObject()
         val assets = linkedMapOf<String, ByteArray>()
 
@@ -68,8 +69,8 @@ object AlivePackageManager {
         if (source.isBlank()) throw IllegalArgumentException("An animation asset has an empty location.")
         val bytes = context.contentResolver.openInputStream(Uri.parse(source))?.use { it.readBytes() }
             ?: throw IllegalStateException("An animation or sound file is no longer accessible.")
-        if (bytes.size.toLong() > MAX_PACKAGE_BYTES) {
-            throw IllegalArgumentException("An asset is too large to export.")
+        if (assets.values.sumOf { it.size.toLong() } + bytes.size > MAX_PACKAGE_BYTES) {
+            throw IllegalArgumentException("The complete Alive package is larger than the 30 MB limit.")
         }
         assets[entryName] = bytes
     }
@@ -110,6 +111,9 @@ object AlivePackageManager {
         val jsonBytes = entries["profile.json"]
             ?: throw IllegalArgumentException("This file is missing its Alive profile.")
         val root = JSONObject(String(jsonBytes, Charsets.UTF_8))
+        if (root.optInt("packageVersion", -1) != 1) {
+            throw IllegalArgumentException("This Alive package version is not supported.")
+        }
         val newId = "alive_${UUID.randomUUID()}"
         root.put("id", newId)
         root.put("template", false)
