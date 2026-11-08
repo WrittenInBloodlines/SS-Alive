@@ -15,6 +15,7 @@ data class AliveProfile(
     var movementSpeedPercent: Int = 100,
     var sleepFrequency: Int = 35,
     var curiosity: Int = 50,
+    var gravityStrengthPercent: Int = 100,
     var interactionFrequency: Int = 50,
     var soundsEnabled: Boolean = false,
     var soundVolume: Int = 50,
@@ -53,6 +54,7 @@ data class AliveProfile(
                 movementSpeedPercent = root.optInt("movementSpeedPercent", 100).coerceIn(50, 150),
                 sleepFrequency = root.optInt("sleepFrequency", 35).coerceIn(0, 100),
                 curiosity = root.optInt("curiosity", 50).coerceIn(0, 100),
+                gravityStrengthPercent = root.optInt("gravityStrengthPercent", 100).coerceIn(50, 150),
                 interactionFrequency = root.optInt("interactionFrequency", 50).coerceIn(0, 100),
                 soundsEnabled = root.optBoolean("soundsEnabled", false),
                 soundVolume = root.optInt("soundVolume", 50).coerceIn(0, 100),
@@ -92,6 +94,7 @@ data class AliveProfile(
             put("movementSpeedPercent", movementSpeedPercent.coerceIn(50, 150))
             put("sleepFrequency", sleepFrequency.coerceIn(0, 100))
             put("curiosity", curiosity.coerceIn(0, 100))
+            put("gravityStrengthPercent", gravityStrengthPercent.coerceIn(50, 150))
             put("interactionFrequency", interactionFrequency.coerceIn(0, 100))
             put("soundsEnabled", soundsEnabled)
             put("soundVolume", soundVolume.coerceIn(0, 100))
