@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
 import android.widget.Button
 import android.widget.CheckBox
@@ -19,6 +20,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 
 class AliveEditorActivity : AppCompatActivity() {
     private lateinit var profile: AliveProfile
@@ -264,6 +266,7 @@ class AliveEditorActivity : AppCompatActivity() {
         profile.name = nameInput.text.toString().trim().ifEmpty { "Alive 1" }
         profile.sizePercent = profile.sizePercent.coerceIn(25, 200)
         AliveRepository.save(this, profile)
+        refreshRunningAlives()
         Toast.makeText(this, "Alive saved", Toast.LENGTH_SHORT).show()
         if (useAfterSave) {
             AliveRepository.setActive(this, profile)
@@ -279,10 +282,18 @@ class AliveEditorActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 AliveRepository.delete(this, profile.id)
+                refreshRunningAlives()
                 Toast.makeText(this, "Alive deleted", Toast.LENGTH_SHORT).show()
                 finish()
             }
             .show()
+    }
+
+    private fun refreshRunningAlives() {
+        if (AliveService.isRunning && Settings.canDrawOverlays(this)) {
+            ContextCompat.startForegroundService(this, Intent(this, AliveService::class.java)
+                .setAction(AliveService.ACTION_SHOW_EQUIPPED))
+        }
     }
 
     private fun String.titleCase(): String = lowercase().replaceFirstChar { it.uppercase() }
