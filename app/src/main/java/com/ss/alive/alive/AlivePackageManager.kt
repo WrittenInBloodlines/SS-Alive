@@ -20,7 +20,7 @@ object AlivePackageManager {
     fun export(context: Context, profile: AliveProfile, destination: Uri) {
         val root = JSONObject(profile.toJson())
         val frameObject = root.optJSONObject("frames") ?: JSONObject()
-        val assets = linkedMapOf<String, String>()
+        val assets = linkedMapOf<String, ByteArray>()
 
         AliveProfile.STATES.forEach { state ->
             val original = frameObject.optJSONArray(state) ?: return@forEach
@@ -49,8 +49,7 @@ object AlivePackageManager {
                 zip.closeEntry()
                 assets.forEach { (entryName, sourceUri) ->
                     zip.putNextEntry(ZipEntry(entryName))
-                    context.contentResolver.openInputStream(Uri.parse(sourceUri))?.use { it.copyTo(zip) }
-                        ?: throw IllegalStateException("Could not read an asset for export.")
+                    zip.write(sourceUri)
                     zip.closeEntry()
                 }
             }
@@ -61,18 +60,15 @@ object AlivePackageManager {
         context: Context,
         source: String,
         entryName: String,
-        assets: MutableMap<String, String>
+        assets: MutableMap<String, ByteArray>
     ) {
         if (source.isBlank()) throw IllegalArgumentException("An animation asset has an empty location.")
-        context.contentResolver.openInputStream(Uri.parse(source))?.use { input ->
-            val bytes = input.readBytes()
-            if (bytes.size.toLong() > MAX_PACKAGE_BYTES) {
-                throw IllegalArgumentException("An asset is too large to export.")
-            }
-            val temp = File(context.cacheDir, "alive_export_${UUID.randomUUID()}")
-            temp.writeBytes(bytes)
-            assets[entryName] = Uri.fromFile(temp).toString()
-        } ?: throw IllegalStateException("An animation or sound file is no longer accessible.")
+        val bytes = context.contentResolver.openInputStream(Uri.parse(source))?.use { it.readBytes() }
+            ?: throw IllegalStateException("An animation or sound file is no longer accessible.")
+        if (bytes.size.toLong() > MAX_PACKAGE_BYTES) {
+            throw IllegalArgumentException("An asset is too large to export.")
+        }
+        assets[entryName] = bytes
     }
 
     fun import(context: Context, source: Uri): AliveProfile {
