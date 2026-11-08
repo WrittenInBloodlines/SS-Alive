@@ -16,9 +16,6 @@ import androidx.core.app.NotificationCompat
 import kotlin.math.hypot
 
 class AliveService : Service() {
-    @Volatile
-    private var serviceIsRunning = false
-
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
@@ -141,10 +138,12 @@ class AliveService : Service() {
         .build()
 
     companion object {
+        @Volatile
+        private var serviceIsRunning = false
+        val isRunning: Boolean get() = serviceIsRunning
         private const val INTERACTION_COOLDOWN_MS = 5000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
-        val isRunning: Boolean get() = serviceIsRunning
     }
 }
