@@ -36,7 +36,7 @@ object AliveUi {
         val content = page(context)
         val scroll = android.widget.ScrollView(context).apply {
             isFillViewport = true
-            setBackgroundColor(background)
+            setBackgroundColor(AliveUi.background)
             isVerticalScrollBarEnabled = false
             addView(content, ViewGroup.LayoutParams(-1, -2))
         }
