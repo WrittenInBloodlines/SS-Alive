@@ -253,20 +253,16 @@ class AliveEditorActivity : AppCompatActivity() {
     private fun collapsibleSection(title: String, section: LinearLayout): LinearLayout {
         val wrapper = AliveUi.column(this)
         section.visibility = View.GONE
-        lateinit var header: android.widget.Button
-        header = AliveUi.button(this, title + "  +", false) {
+        val header = AliveUi.button(this, title + "  +", false) { }
+        header.setOnClickListener {
             val expanded = section.visibility != View.VISIBLE
             section.visibility = if (expanded) View.VISIBLE else View.GONE
-            headerText(header, title, expanded)
+            header.text = title + if (expanded) "  −" else "  +"
         }
         wrapper.addView(header)
         wrapper.addView(section)
         wrapper.addView(AliveUi.gap(this, 7))
         return wrapper
-    }
-
-    private fun headerText(header: android.widget.Button, title: String, expanded: Boolean) {
-        header.text = title + if (expanded) "  −" else "  +"
     }
 
     private fun addSettingSlider(
