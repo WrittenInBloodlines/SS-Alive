@@ -4,7 +4,7 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 class PetBehavior(var speedPxPerTick: Int = 4) {
-    enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD, INTERACTING }
+    enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD, INTERACTING, APP_SIT }
 
     var direction: Int = 1
         private set
@@ -20,7 +20,7 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     fun step(currentX: Int, currentY: Int, petWidth: Int, petHeight: Int, screenWidth: Int, screenHeight: Int): Position {
         val maxX = (screenWidth - petWidth).coerceAtLeast(0)
         val maxY = (screenHeight - petHeight).coerceAtLeast(0)
-        if (state == State.INTERACTING || state == State.SIT || state == State.HELD) {
+        if (state == State.INTERACTING || state == State.SIT || state == State.HELD || state == State.APP_SIT) {
             return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
         }
         if (state == State.FALLING || state == State.JUMP) {
@@ -93,6 +93,8 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     fun setRunning() { state = State.RUNNING }
     fun setSitting() { state = State.SIT }
     fun setInteracting() { state = State.INTERACTING; velocityY = 0f }
+    fun setAppSitting() { state = State.APP_SIT; velocityY = 0f }
+    fun resumeFromAppSitting() { if (state == State.APP_SIT) { state = State.WALKING; routeSegment = 0 } }
     fun jump() { if (state != State.FALLING && state != State.HELD && state != State.INTERACTING) { state = State.JUMP; velocityY = -14f } }
     private fun randomIdleDuration(): Int = Random.nextInt(25, 110)
     data class Position(val x: Int, val y: Int)
