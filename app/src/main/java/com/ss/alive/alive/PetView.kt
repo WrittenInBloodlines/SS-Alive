@@ -135,7 +135,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                     rect.top > 0 &&
                         rect.left < params.x + petWidth &&
                         rect.right > params.x &&
-                        oldBottom <= rect.top + 8 &&
+                        oldBottom <= rect.top - 8 &&
                         newBottom >= rect.top
                 }
                 .minByOrNull { it.top }
