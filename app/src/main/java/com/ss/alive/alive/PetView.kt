@@ -128,7 +128,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         var nextY = position.y
 
         if (previousState == PetBehavior.State.FALLING && nextY > previousY) {
-            val oldBottom = previousY + petHeight
             val newBottom = nextY + petHeight
             val landingSurface = AlivePlatformRegistry.snapshot()
                 .asSequence()
@@ -155,7 +154,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             previousY > previousPlatformTop
         ) {
             lastAppPlatformTop = null
-        }
         }
 
         if (nextX != params.x || nextY != params.y) {
