@@ -189,6 +189,7 @@ class AliveEditorActivity : AppCompatActivity() {
         addSettingSlider(personality, "Movement speed", "Controls walking speed.", profile.movementSpeedPercent, 50, 150, "%") { profile.movementSpeedPercent = it }
         addSettingSlider(personality, "Sleep frequency", "Controls how often and how long this Alive rests.", profile.sleepFrequency, 0, 100) { profile.sleepFrequency = it }
         addSettingSlider(personality, "Curiosity", "Higher curiosity makes direction changes more likely.", profile.curiosity, 0, 100) { profile.curiosity = it }
+        addSettingSlider(personality, "Gravity", "Lower gravity makes falling and jumping feel floatier.", profile.gravityStrengthPercent, 50, 150, "%") { profile.gravityStrengthPercent = it }
         addSettingSlider(personality, "Interaction frequency", "Controls the cooldown before another interaction.", profile.interactionFrequency, 0, 100) { profile.interactionFrequency = it }
         optionalSettings.addView(collapsibleSection("Personality", personality))
 
