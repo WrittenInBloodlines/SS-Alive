@@ -7,7 +7,8 @@ class PetBehavior(
     var speedPxPerTick: Int = 4,
     private val idleChance: Float = 0.0015f,
     private val idleDurationMultiplier: Float = 1f,
-    private val curiosityLevel: Int = 50
+    private val curiosityLevel: Int = 50,
+    private val gravityMultiplier: Float = 1f
 ) {
     enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD, INTERACTING, APP_SIT }
 
@@ -29,7 +30,7 @@ class PetBehavior(
             return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
         }
         if (state == State.FALLING || state == State.JUMP) {
-            velocityY += if (state == State.JUMP) 0.75f else 0.9f
+            velocityY += (if (state == State.JUMP) 0.75f else 0.9f) * gravityMultiplier.coerceIn(0.5f, 1.5f)
             var nextY = currentY + velocityY.toInt()
             if (nextY >= maxY) {
                 nextY = maxY
