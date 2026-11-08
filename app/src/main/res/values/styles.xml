@@ -2,14 +2,14 @@
     <style name="Theme.SSAlive" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#080D18</item>
-        <item name="android:navigationBarColor">#080D18</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:windowBackground">#080D18</item>
-        <item name="colorPrimary">#4D91EB</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#78A9E8</item>
-        <item name="colorOnSecondary">#081321</item>
-        <item name="android:colorAccent">#4D91EB</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="colorPrimary">#5B91DC</item>
+        <item name="colorOnPrimary">#050B14</item>
+        <item name="colorSecondary">#27466F</item>
+        <item name="colorOnSecondary">#F0F4FA</item>
+        <item name="android:colorAccent">#5B91DC</item>
     </style>
 </resources>
