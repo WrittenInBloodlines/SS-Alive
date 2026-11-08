@@ -8,23 +8,16 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 
-/** Draws user-selected image frames and downloaded S•S template frames. */
+/** Draws only the animation frames selected by the user for this Alive. */
 class CustomPetSprite(private val context: Context, private val profile: AliveProfile) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val cache = mutableMapOf<String, MutableList<Bitmap>>()
 
-    fun frameCount(state: PetBehavior.State): Int {
-        val frames = loadFrames(stateKey(state))
-        return if (frames.isNotEmpty()) frames.size else BuiltInTemplateSprite.frameCount(profile.templateKind, state)
-    }
+    fun frameCount(state: PetBehavior.State): Int = loadFrames(stateKey(state)).size
 
     fun draw(canvas: Canvas, state: PetBehavior.State, frame: Int, direction: Int) {
-        val key = stateKey(state)
-        val bitmaps = loadFrames(key)
-        if (bitmaps.isEmpty()) {
-            BuiltInTemplateSprite.draw(profile.templateKind, canvas, frame, state, direction)
-            return
-        }
+        val bitmaps = loadFrames(stateKey(state))
+        if (bitmaps.isEmpty()) return
         val bitmap = bitmaps[frame % bitmaps.size]
         val scale = minOf(canvas.width.toFloat() / bitmap.width, canvas.height.toFloat() / bitmap.height).coerceAtMost(2.0f)
         val width = bitmap.width * scale
@@ -32,14 +25,16 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
         val left = (canvas.width - width) / 2f
         val top = (canvas.height - height) / 2f
         canvas.save()
-        if (direction < 0) canvas.scale(-1f, 1f, canvas.width / 2f, canvas.height / 2f)
+        if (direction < 0 && state != PetBehavior.State.CLIMBING) {
+            canvas.scale(-1f, 1f, canvas.width / 2f, canvas.height / 2f)
+        }
         canvas.drawBitmap(bitmap, null, RectF(left, top, left + width, top + height), paint)
         canvas.restore()
     }
 
     private fun stateKey(state: PetBehavior.State): String = when (state) {
         PetBehavior.State.WALKING -> AliveProfile.WALK
-        PetBehavior.State.CLIMBING -> AliveProfile.WALK
+        PetBehavior.State.CLIMBING -> AliveProfile.CLIMB
         PetBehavior.State.IDLE -> AliveProfile.IDLE
         PetBehavior.State.RUNNING -> AliveProfile.RUN
         PetBehavior.State.SIT -> AliveProfile.SIT
@@ -47,6 +42,7 @@ class CustomPetSprite(private val context: Context, private val profile: AlivePr
         PetBehavior.State.FALLING -> AliveProfile.FALL
         PetBehavior.State.LANDING -> AliveProfile.LANDING
         PetBehavior.State.HELD -> AliveProfile.HELD
+        PetBehavior.State.INTERACTING -> AliveProfile.INTERACTION
     }
 
     private fun loadFrames(state: String): List<Bitmap> {

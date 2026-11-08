@@ -17,66 +17,61 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var startY = 0
     private var dragging = false
     private val handler = Handler(Looper.getMainLooper())
-    private val behavior = PetBehavior(speedPxPerTick = if (profile.templateKind == "ALEX") 5 else 4)
+    private val behavior = PetBehavior()
     private val customSprite = CustomPetSprite(context, profile)
     private var animationFrame = 0
     private var lastAnimationTime = 0L
     private var lastState = behavior.state
     private var lastDirection = behavior.direction
-    private var interactionTicks = 0
-    private var followActive = false
+    private var interactionUntil = 0L
+    private var interactionAnimationUntil = 0L
 
-    val templateKind: String get() = profile.templateKind
     val profileId: String get() = profile.id
     val isBeingDragged: Boolean get() = dragging
 
-    fun startInteraction() {
-        if (interactionTicks == 0 && !dragging && behavior.state != PetBehavior.State.HELD) {
-            followActive = false
-            interactionTicks = 28
-            behavior.setSitting()
-            animationFrame = 0
-        }
+    fun canStartInteraction(): Boolean {
+        return profile.interactionEnabled &&
+            profile.frameUris(AliveProfile.INTERACTION).isNotEmpty() &&
+            !dragging &&
+            behavior.state != PetBehavior.State.HELD &&
+            behavior.state != PetBehavior.State.FALLING &&
+            behavior.state != PetBehavior.State.JUMP &&
+            behavior.state != PetBehavior.State.LANDING &&
+            behavior.state != PetBehavior.State.INTERACTING
     }
 
-    fun followTarget(targetX: Int, targetY: Int, run: Boolean) {
-        if (dragging || interactionTicks > 0 || behavior.state == PetBehavior.State.HELD || behavior.state == PetBehavior.State.FALLING) return
-        followActive = true
-        val params = layoutParams as? WindowManager.LayoutParams ?: return
-        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val screenWidth = resources.displayMetrics.widthPixels
-        val screenHeight = resources.displayMetrics.heightPixels
-        val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
-        val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
-        val maxX = (screenWidth - petWidth).coerceAtLeast(0)
-        val maxY = (screenHeight - petHeight).coerceAtLeast(0)
-        val position = behavior.stepToward(
-            params.x, params.y,
-            (targetX - petWidth / 2).coerceIn(0, maxX),
-            (targetY - petHeight / 2).coerceIn(0, maxY), run
-        )
-        params.x = position.x.coerceIn(0, maxX)
-        params.y = position.y.coerceIn(0, maxY)
-        runCatching { wm.updateViewLayout(this, params) }
+    fun interactionDurationMs(): Long {
+        val frames = customSprite.frameCount(PetBehavior.State.INTERACTING).coerceAtLeast(1)
+        return (frames * 1000L / profile.speedFps(AliveProfile.INTERACTION)).coerceAtLeast(300L)
+    }
+
+    /** Starts this Alive's own animation, synchronized to the other Alive's duration. */
+    fun startInteraction(sharedDurationMs: Long): Boolean {
+        if (!canStartInteraction()) return false
+        val now = System.currentTimeMillis()
+        val ownDuration = interactionDurationMs()
+        interactionAnimationUntil = now + ownDuration
+        interactionUntil = now + maxOf(ownDuration, sharedDurationMs)
+        behavior.setInteracting()
+        animationFrame = 0
+        lastAnimationTime = now
         invalidate()
-    }
-
-    fun stopFollowing() {
-        if (!followActive) return
-        followActive = false
-        if (behavior.state == PetBehavior.State.RUNNING || behavior.state == PetBehavior.State.WALKING) {
-            behavior.setSitting()
-            interactionTicks = 16
-            animationFrame = 0
-        }
+        return true
     }
 
     private val animationRunnable = object : Runnable {
         override fun run() {
-            if (interactionTicks > 0) {
-                interactionTicks--
-                if (interactionTicks == 0) behavior.resumeWalking()
-            } else if (!dragging && !followActive) movePet()
+            val now = System.currentTimeMillis()
+            if (behavior.state == PetBehavior.State.INTERACTING) {
+                if (now >= interactionUntil) {
+                    interactionUntil = 0L
+                    interactionAnimationUntil = 0L
+                    behavior.resumeWalking()
+                    animationFrame = 0
+                }
+            } else if (!dragging) {
+                movePet()
+            }
             updateSpriteFrame()
             invalidate()
             handler.postDelayed(this, 30L)
@@ -130,27 +125,35 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             lastDirection = behavior.direction
             return
         }
-        val duration = when (behavior.state) {
-            PetBehavior.State.RUNNING -> 62L
-            PetBehavior.State.WALKING -> 92L
-            PetBehavior.State.CLIMBING -> 88L
-            PetBehavior.State.IDLE -> 155L
-            PetBehavior.State.FALLING -> 72L
-            PetBehavior.State.LANDING -> 70L
-            PetBehavior.State.HELD -> 105L
-            PetBehavior.State.SIT -> 145L
-            PetBehavior.State.JUMP -> 78L
+        val stateKey = when (behavior.state) {
+            PetBehavior.State.WALKING -> AliveProfile.WALK
+            PetBehavior.State.CLIMBING -> AliveProfile.CLIMB
+            PetBehavior.State.IDLE -> AliveProfile.IDLE
+            PetBehavior.State.RUNNING -> AliveProfile.RUN
+            PetBehavior.State.SIT -> AliveProfile.SIT
+            PetBehavior.State.JUMP -> AliveProfile.JUMP
+            PetBehavior.State.FALLING -> AliveProfile.FALL
+            PetBehavior.State.LANDING -> AliveProfile.LANDING
+            PetBehavior.State.HELD -> AliveProfile.HELD
+            PetBehavior.State.INTERACTING -> AliveProfile.INTERACTION
         }
+        if (behavior.state == PetBehavior.State.INTERACTING && now >= interactionAnimationUntil) return
+
+        val duration = (1000L / profile.speedFps(stateKey)).coerceAtLeast(16L)
         val count = customSprite.frameCount(behavior.state).coerceAtLeast(1)
         if (now - lastAnimationTime >= duration) {
             val elapsed = ((now - lastAnimationTime) / duration).toInt().coerceAtMost(count)
-            animationFrame = (animationFrame + elapsed) % count
+            animationFrame = if (behavior.state == PetBehavior.State.INTERACTING) {
+                (animationFrame + elapsed).coerceAtMost(count - 1)
+            } else {
+                (animationFrame + elapsed) % count
+            }
             lastAnimationTime = now
         }
     }
 
     private fun reactToTap() {
-        followActive = false
+        if (behavior.state == PetBehavior.State.INTERACTING) return
         behavior.reverse()
         animationFrame = 0
         invalidate()
@@ -175,7 +178,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             MotionEvent.ACTION_DOWN -> {
                 downX = event.rawX; downY = event.rawY
                 startX = params.x; startY = params.y
-                dragging = false; followActive = false
+                dragging = false
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -183,7 +186,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 val dy = event.rawY - downY
                 if (!dragging && (abs(dx) > 8 || abs(dy) > 8)) {
                     dragging = true
-                    interactionTicks = 0
+                    interactionUntil = 0L
+                    interactionAnimationUntil = 0L
                     behavior.setHeld()
                     animationFrame = 0
                     invalidate()
@@ -197,7 +201,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             }
             MotionEvent.ACTION_UP -> {
                 if (!dragging) reactToTap() else behavior.startFalling()
-                interactionTicks = 0
+                interactionUntil = 0L
+                interactionAnimationUntil = 0L
                 animationFrame = 0
                 invalidate()
                 dragging = false
@@ -205,7 +210,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (dragging) behavior.startFalling()
-                interactionTicks = 0
+                interactionUntil = 0L
+                interactionAnimationUntil = 0L
                 animationFrame = 0
                 invalidate()
                 dragging = false

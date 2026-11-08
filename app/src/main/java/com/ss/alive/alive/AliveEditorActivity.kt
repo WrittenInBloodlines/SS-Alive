@@ -7,8 +7,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
-import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -66,6 +66,18 @@ class AliveEditorActivity : AppCompatActivity() {
         }
         root.addView(nameInput, LinearLayout.LayoutParams(-1, -2))
 
+        root.addView(CheckBox(this).apply {
+            text = "Enable interactions with other Alives"
+            isChecked = profile.interactionEnabled
+            setPadding(0, 16, 0, 8)
+            setOnCheckedChangeListener { _, checked -> profile.interactionEnabled = checked }
+        })
+        root.addView(TextView(this).apply {
+            text = "Optional: both Alives need this enabled and an Interaction animation to interact when they meet."
+            textSize = 13f
+            setPadding(0, 0, 0, 12)
+        })
+
         sizeLabel = TextView(this).apply { textSize = 17f; setPadding(0, 18, 0, 4) }
         root.addView(sizeLabel)
         val sizeBar = SeekBar(this).apply {
@@ -102,9 +114,16 @@ class AliveEditorActivity : AppCompatActivity() {
                 setPadding(0, 20, 0, 8)
             }
             section.addView(TextView(this).apply {
-                text = state.titleCase()
+                text = if (state == AliveProfile.INTERACTION) "Interaction (Optional)" else state.titleCase()
                 textSize = 20f
             })
+            if (state == AliveProfile.INTERACTION) {
+                section.addView(TextView(this).apply {
+                    text = "Add the frames this Alive should play when it meets another Alive."
+                    textSize = 13f
+                    setPadding(0, 4, 0, 8)
+                })
+            }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
