@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
 
         if (personalAlives.isEmpty()) {
             val empty = AliveUi.column(this)
-            empty.gravity = android.view.Gravity.CENTER
+            empty.gravity = android.view.Gravity.START
             empty.addView(AliveUi.heading(this, "No Alives yet", 18f))
             empty.addView(AliveUi.body(this, "Create your first character to get started."))
             empty.addView(AliveUi.gap(this, 10))
