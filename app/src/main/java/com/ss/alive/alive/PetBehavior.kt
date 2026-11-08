@@ -1,11 +1,10 @@
 package com.ss.alive.alive
 
 import kotlin.math.abs
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 class PetBehavior(var speedPxPerTick: Int = 4) {
-    enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD }
+    enum class State { WALKING, CLIMBING, IDLE, RUNNING, SIT, JUMP, FALLING, LANDING, HELD, INTERACTING }
 
     var direction: Int = 1
         private set
@@ -21,6 +20,9 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     fun step(currentX: Int, currentY: Int, petWidth: Int, petHeight: Int, screenWidth: Int, screenHeight: Int): Position {
         val maxX = (screenWidth - petWidth).coerceAtLeast(0)
         val maxY = (screenHeight - petHeight).coerceAtLeast(0)
+        if (state == State.INTERACTING || state == State.SIT || state == State.HELD) {
+            return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
+        }
         if (state == State.FALLING || state == State.JUMP) {
             velocityY += if (state == State.JUMP) 0.75f else 0.9f
             var nextY = currentY + velocityY.toInt()
@@ -42,7 +44,6 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
             idleTicksRemaining = randomIdleDuration()
             return Position(currentX.coerceIn(0, maxX), maxY)
         }
-        if (state == State.HELD || state == State.SIT) return Position(currentX.coerceIn(0, maxX), currentY.coerceIn(0, maxY))
         if (reversing) return Position(currentX, currentY)
         state = if (routeSegment == 1 || routeSegment == 3) State.CLIMBING else if (state == State.CLIMBING) State.WALKING else state
         if (state == State.IDLE) {
@@ -69,16 +70,12 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     }
 
     fun stepToward(currentX: Int, currentY: Int, targetX: Int, targetY: Int, run: Boolean): Position {
-        if (state == State.FALLING || state == State.JUMP || state == State.LANDING || state == State.HELD || state == State.SIT) return Position(currentX, currentY)
-
-        // The first Alex/Ciro prototype is a grounded screen-edge world. Following Alex
-        // should move Ciro horizontally instead of making him float diagonally through the screen.
+        if (state == State.FALLING || state == State.JUMP || state == State.LANDING || state == State.HELD || state == State.SIT || state == State.INTERACTING) return Position(currentX, currentY)
         val dx = targetX - currentX
         if (abs(dx) <= 34) {
             state = State.WALKING
             return Position(currentX, currentY)
         }
-
         direction = if (dx > 0) 1 else -1
         val distance = abs(dx).toFloat().coerceAtLeast(1f)
         val speed = if (run) speedPxPerTick * 2.55f else speedPxPerTick * 1.20f
@@ -88,14 +85,15 @@ class PetBehavior(var speedPxPerTick: Int = 4) {
     }
 
     fun setClimbing() { state = State.CLIMBING }
-    fun reverse() { if (state != State.FALLING && state != State.HELD && state != State.LANDING && !reversing) { reversing = true; direction *= -1 } }
+    fun reverse() { if (state != State.FALLING && state != State.HELD && state != State.LANDING && state != State.INTERACTING && !reversing) { reversing = true; direction *= -1 } }
     fun finishReverse() { reversing = false }
     fun startFalling() { if (state == State.HELD) { state = State.FALLING; velocityY = 0f; idleTicksRemaining = 0; landingTicksRemaining = 0 } }
     fun setHeld() { state = State.HELD; velocityY = 0f; idleTicksRemaining = 0; landingTicksRemaining = 0 }
     fun resumeWalking() { state = State.WALKING; idleTicksRemaining = 0; landingTicksRemaining = 0 }
     fun setRunning() { state = State.RUNNING }
     fun setSitting() { state = State.SIT }
-    fun jump() { if (state != State.FALLING && state != State.HELD) { state = State.JUMP; velocityY = -14f } }
+    fun setInteracting() { state = State.INTERACTING; velocityY = 0f }
+    fun jump() { if (state != State.FALLING && state != State.HELD && state != State.INTERACTING) { state = State.JUMP; velocityY = -14f } }
     private fun randomIdleDuration(): Int = Random.nextInt(25, 110)
     data class Position(val x: Int, val y: Int)
 }
