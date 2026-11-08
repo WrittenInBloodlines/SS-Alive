@@ -27,6 +27,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var interactionUntil = 0L
     private var interactionAnimationUntil = 0L
     private var appSitUntil = 0L
+    private var lastAppPlatformTop: Int? = null
 
     val profileId: String get() = profile.id
     val isBeingDragged: Boolean get() = dragging
@@ -133,19 +134,28 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 .asSequence()
                 .filter { rect ->
                     rect.top > 0 &&
+                        rect.top != lastAppPlatformTop &&
                         rect.left < params.x + petWidth &&
                         rect.right > params.x &&
-                        oldBottom <= rect.top - 8 &&
-                        newBottom >= rect.top
+                        rect.top >= previousY - 8 &&
+                        rect.top <= newBottom
                 }
                 .minByOrNull { it.top }
 
             if (landingSurface != null) {
                 nextY = (landingSurface.top - petHeight).coerceAtLeast(0)
+                lastAppPlatformTop = landingSurface.top
                 behavior.setAppSitting()
                 appSitUntil = System.currentTimeMillis() + APP_SIT_DURATION_MS
                 animationFrame = 0
             }
+        }
+        val previousPlatformTop = lastAppPlatformTop
+        if (previousState == PetBehavior.State.FALLING && previousPlatformTop != null &&
+            previousY > previousPlatformTop
+        ) {
+            lastAppPlatformTop = null
+        }
         }
 
         if (nextX != params.x || nextY != params.y) {
@@ -231,6 +241,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                     interactionUntil = 0L
                     interactionAnimationUntil = 0L
                     behavior.setHeld()
+                    lastAppPlatformTop = null
                     animationFrame = 0
                     invalidate()
                 }
