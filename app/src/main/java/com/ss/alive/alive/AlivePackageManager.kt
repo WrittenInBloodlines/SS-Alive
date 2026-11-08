@@ -41,6 +41,9 @@ object AlivePackageManager {
             copyUriIntoPackage(context, sound, entryName, assets)
             root.put("soundUri", entryName)
         }
+        if (assets.values.sumOf { it.size.toLong() } > MAX_PACKAGE_BYTES) {
+            throw IllegalArgumentException("The complete Alive package is larger than the 30 MB limit.")
+        }
 
         context.contentResolver.openOutputStream(destination)?.use { output ->
             ZipOutputStream(output).use { zip ->
