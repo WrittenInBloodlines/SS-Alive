@@ -29,13 +29,13 @@ object AliveUi {
     fun page(context: Context): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(context, 20))
-        setBackgroundColor(background)
+        setBackgroundColor(AliveUi.background)
     }
 
     fun scrollPage(context: Context): Pair<android.widget.ScrollView, LinearLayout> {
         val content = page(context)
         val scroll = android.widget.ScrollView(context).apply {
-            fillViewport = true
+            isFillViewport = true
             setBackgroundColor(background)
             isVerticalScrollBarEnabled = false
             addView(content, ViewGroup.LayoutParams(-1, -2))
@@ -47,7 +47,7 @@ object AliveUi {
         TextView(context).apply {
             text = value
             textSize = size
-            setTextColor(text)
+            setTextColor(AliveUi.text)
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         }
 
@@ -55,7 +55,7 @@ object AliveUi {
         TextView(context).apply {
             text = value
             textSize = size
-            setTextColor(muted)
+            setTextColor(AliveUi.muted)
             setLineSpacing(dp(context, 2).toFloat(), 1f)
         }
 
@@ -72,7 +72,7 @@ object AliveUi {
         MaterialCardView(context).apply {
             radius = dp(context, 18).toFloat()
             cardElevation = 0f
-            setCardBackgroundColor(if (raised) surfaceRaised else surface)
+            setCardBackgroundColor(if (raised) AliveUi.surfaceRaised else AliveUi.surface)
             strokeColor = border
             strokeWidth = dp(context, 1)
             setContentPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 16))
@@ -101,7 +101,7 @@ object AliveUi {
             insetTop = 0
             insetBottom = 0
             minimumHeight = dp(context, 48)
-            setTextColor(if (primary) Color.WHITE else text)
+            setTextColor(if (primary) Color.WHITE else AliveUi.text)
             backgroundTintList = ColorStateList.valueOf(if (primary) blue else surfaceRaised)
             if (!primary) strokeColor = ColorStateList.valueOf(border)
             if (!primary) strokeWidth = dp(context, 1)
