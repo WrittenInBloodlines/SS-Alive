@@ -77,6 +77,17 @@ class AliveEditorActivity : AppCompatActivity() {
             textSize = 13f
             setPadding(0, 0, 0, 12)
         })
+        root.addView(CheckBox(this).apply {
+            text = "Enable Ghost Mode"
+            isChecked = profile.ghostMode
+            setPadding(0, 12, 0, 4)
+            setOnCheckedChangeListener { _, checked -> profile.ghostMode = checked }
+        })
+        root.addView(TextView(this).apply {
+            text = "Ghost Mode makes this Alive partly transparent and lets taps pass through it. Turn it off from this editor or the Alives list."
+            textSize = 13f
+            setPadding(0, 0, 0, 12)
+        })
 
         sizeLabel = TextView(this).apply { textSize = 17f; setPadding(0, 18, 0, 4) }
         root.addView(sizeLabel)
@@ -114,12 +125,20 @@ class AliveEditorActivity : AppCompatActivity() {
                 setPadding(0, 20, 0, 8)
             }
             section.addView(TextView(this).apply {
-                text = if (state == AliveProfile.INTERACTION) "Interaction (Optional)" else state.titleCase()
+                text = when (state) {
+                    AliveProfile.INTERACTION -> "Interaction (Optional)"
+                    AliveProfile.APP_SIT -> "App Surface Sitting (Optional)"
+                    else -> state.titleCase()
+                }
                 textSize = 20f
             })
-            if (state == AliveProfile.INTERACTION) {
+            if (state == AliveProfile.INTERACTION || state == AliveProfile.APP_SIT) {
                 section.addView(TextView(this).apply {
-                    text = "Add the frames this Alive should play when it meets another Alive."
+                    text = if (state == AliveProfile.INTERACTION) {
+                        "Add the frames this Alive should play when it meets another Alive."
+                    } else {
+                        "Add the frames this Alive should play after falling onto a visible app interface surface. This requires the optional accessibility permission."
+                    }
                     textSize = 13f
                     setPadding(0, 4, 0, 8)
                 })
