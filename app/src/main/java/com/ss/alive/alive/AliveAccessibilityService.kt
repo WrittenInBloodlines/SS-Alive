@@ -28,6 +28,15 @@ class AliveAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+        ) {
+            event.packageName?.toString()?.takeIf { it.isNotBlank() }?.let { foregroundPackage ->
+                sendBroadcast(Intent(AliveService.ACTION_FOREGROUND_APP).putExtra(
+                    AliveService.EXTRA_FOREGROUND_PACKAGE, foregroundPackage
+                ))
+            }
+        }
         refreshVisibleBounds()
     }
 
