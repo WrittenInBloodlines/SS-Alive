@@ -58,7 +58,7 @@ class AliveService : Service() {
                         if (!foreground.isNullOrBlank() && foreground == homePackage && power.isInteractive &&
                             Settings.canDrawOverlays(this@AliveService)
                         ) {
-                            showPets()
+                            if (petViews.isEmpty()) showPets()
                             updateNotification("Your equipped Alives are active")
                         } else {
                             removePets()
