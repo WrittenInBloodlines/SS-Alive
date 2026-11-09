@@ -254,3 +254,29 @@ object AliveStatistics {
         prefs(context).edit().remove("${id}_taps").remove("${id}_landings").apply()
     }
 }
+
+
+object AlivePositionStore {
+    private const val PREFS = "ss_alive_positions"
+
+    private fun orientation(context: android.content.Context): String {
+        val metrics = context.resources.displayMetrics
+        return if (metrics.heightPixels >= metrics.widthPixels) "portrait" else "landscape"
+    }
+
+    fun save(context: android.content.Context, id: String, x: Int, y: Int) {
+        context.getSharedPreferences(PREFS, 0).edit()
+            .putInt("${id}_${orientation(context)}_x", x)
+            .putInt("${id}_${orientation(context)}_y", y)
+            .apply()
+    }
+
+    fun load(context: android.content.Context, id: String): Pair<Int, Int>? {
+        val prefs = context.getSharedPreferences(PREFS, 0)
+        val suffix = orientation(context)
+        val xKey = "${id}_${suffix}_x"
+        val yKey = "${id}_${suffix}_y"
+        if (!prefs.contains(xKey) || !prefs.contains(yKey)) return null
+        return prefs.getInt(xKey, 0) to prefs.getInt(yKey, 0)
+    }
+}
