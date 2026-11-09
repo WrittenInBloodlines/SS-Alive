@@ -210,6 +210,18 @@ class AliveEditorActivity : AppCompatActivity() {
 
         val personality = AliveUi.column(this)
         personality.addView(AliveUi.body(this, "These values affect movement, resting and interaction timing.", 12f))
+        personality.addView(AliveUi.button(this, "Mood  •  ${profile.mood.lowercase().replaceFirstChar { it.uppercase() }}", false) {
+            val moods = arrayOf("Neutral", "Cheerful", "Sleepy", "Curious", "Calm", "Energetic")
+            val values = arrayOf("NEUTRAL", "CHEERFUL", "SLEEPY", "CURIOUS", "CALM", "ENERGETIC")
+            AlertDialog.Builder(this)
+                .setTitle("Choose a mood")
+                .setItems(moods) { _, index ->
+                    profile.mood = values[index]
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
         addSettingSlider(personality, "Energy", "Higher energy means more active movement.", profile.energyLevel, 0, 100) { profile.energyLevel = it }
         addSettingSlider(personality, "Movement speed", "Controls walking speed.", profile.movementSpeedPercent, 50, 150, "%") { profile.movementSpeedPercent = it }
         addSettingSlider(personality, "Sleep frequency", "Controls how often and how long this Alive rests.", profile.sleepFrequency, 0, 100) { profile.sleepFrequency = it }
