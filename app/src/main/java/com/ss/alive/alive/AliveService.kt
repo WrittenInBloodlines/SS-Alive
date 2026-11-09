@@ -122,6 +122,7 @@ class AliveService : Service() {
                 val approachMargin = maxOf(28.0, (a.width + b.width) * 0.10)
                 if (gap > approachMargin) continue
 
+                if (AliveRelationshipStore.level(this, first.profileId, second.profileId) == "Unknown") continue
                 val pairKey = listOf(first.profileId, second.profileId).sorted().joinToString(":")
                 if (now < (pairCooldownUntil[pairKey] ?: 0L)) continue
 
