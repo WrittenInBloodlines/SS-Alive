@@ -23,6 +23,7 @@ data class AliveProfile(
     var soundVolume: Int = 50,
     var soundUri: String? = null,
     var heldItem: String? = null,
+    var mood: String = "NEUTRAL",
     val frames: MutableMap<String, MutableList<String>> = mutableMapOf(),
     val speedsFps: MutableMap<String, Int> = mutableMapOf()
 ) {
@@ -64,7 +65,8 @@ data class AliveProfile(
                 soundsEnabled = root.optBoolean("soundsEnabled", false),
                 soundVolume = root.optInt("soundVolume", 50).coerceIn(0, 100),
                 soundUri = root.optString("soundUri", "").takeIf { it.isNotBlank() },
-                heldItem = root.optString("heldItem", "").takeIf { it in listOf("📖", "🌹", "🔑", "☕", "⭐", "🎁") }
+                heldItem = root.optString("heldItem", "").takeIf { it in listOf("📖", "🌹", "🔑", "☕", "⭐", "🎁") },
+                mood = root.optString("mood", "NEUTRAL").uppercase().takeIf { it in setOf("NEUTRAL", "CHEERFUL", "SLEEPY", "CURIOUS", "CALM", "ENERGETIC") } ?: "NEUTRAL"
             )
             val frameObject = root.optJSONObject("frames")
             STATES.forEach { state ->
@@ -108,6 +110,7 @@ data class AliveProfile(
             put("soundVolume", soundVolume.coerceIn(0, 100))
             put("soundUri", soundUri ?: "")
             put("heldItem", heldItem ?: "")
+            put("mood", mood)
         }
         val frameObject = JSONObject()
         frames.forEach { (state, uris) ->
