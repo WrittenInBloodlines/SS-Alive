@@ -11,6 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.ss.alive.account.AccountBridge
+import com.ss.alive.account.AliveAccountStore
 import com.ss.alive.alive.AliveEditorActivity
 import com.ss.alive.alive.AliveProfile
 import com.ss.alive.alive.AliveRepository
@@ -57,7 +58,42 @@ class MainActivity : AppCompatActivity() {
         content.addView(AliveUi.gap(this, 10))
         content.addView(AliveUi.heading(this, "Alive", 36f))
         content.addView(AliveUi.body(this, "A little life on your screen.", 14f))
-        content.addView(AliveUi.gap(this, 34))
+        content.addView(AliveUi.gap(this, 24))
+
+        val accountCard = AliveUi.column(this)
+        val connectedAccount = AliveAccountStore.get(this)
+        if (connectedAccount != null) {
+            val accountName = connectedAccount.displayName.ifBlank { connectedAccount.username }
+            accountCard.addView(AliveUi.label(this, "S•S ACCOUNT"))
+            accountCard.addView(AliveUi.gap(this, 6))
+            accountCard.addView(AliveUi.heading(this, "Connected to S•S Hub", 18f))
+            accountCard.addView(AliveUi.body(
+                this,
+                "Signed in as $accountName" + if (connectedAccount.isCreator) "  •  S•S Creator" else "",
+                13f
+            ))
+            accountCard.addView(AliveUi.gap(this, 12))
+            accountCard.addView(AliveUi.button(this, "Refresh account connection", true) {
+                if (!AccountBridge.request(this)) {
+                    Toast.makeText(this, "Could not open S•S Hub. Make sure it is installed.", Toast.LENGTH_LONG).show()
+                }
+            })
+        } else {
+            accountCard.addView(AliveUi.label(this, "S•S ACCOUNT"))
+            accountCard.addView(AliveUi.gap(this, 6))
+            accountCard.addView(AliveUi.heading(this, "Connect your S•S account", 18f))
+            accountCard.addView(AliveUi.body(
+                this,
+                "S•S Alive uses your S•S Hub session. Open Hub and sign in, then return here to refresh the connection.",
+                13f
+            ))
+            accountCard.addView(AliveUi.gap(this, 12))
+            accountCard.addView(AliveUi.button(this, "Open S•S Hub", true) {
+                openHubForSignIn()
+            })
+        }
+        content.addView(AliveUi.card(this, accountCard))
+        content.addView(AliveUi.gap(this, 10))
 
         content.addView(AliveUi.menuTile(this, "My Alives", "Manage, equip and customize your characters.") {
             showAlives()
@@ -250,6 +286,15 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.startForegroundService(this, Intent(this, AliveService::class.java)
                 .setAction(AliveService.ACTION_SHOW_EQUIPPED))
         }
+    }
+
+    private fun openHubForSignIn() {
+        val launchIntent = packageManager.getLaunchIntentForPackage("com.ss.hub")
+        if (launchIntent == null) {
+            Toast.makeText(this, "S•S Hub is not installed.", Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(launchIntent)
     }
 
     private fun startEquipped() {
