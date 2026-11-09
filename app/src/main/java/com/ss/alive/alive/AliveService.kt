@@ -42,7 +42,7 @@ class AliveService : Service() {
                         !prefs.getBoolean("pause_other_apps", false) &&
                         Settings.canDrawOverlays(this@AliveService)
                     ) {
-                        showPets()
+                        if (petViews.isEmpty()) showPets()
                         updateNotification("Your equipped Alives are active")
                     }
                 }
