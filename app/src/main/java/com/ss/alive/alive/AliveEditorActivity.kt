@@ -190,6 +190,24 @@ class AliveEditorActivity : AppCompatActivity() {
         touchReactions.addView(reactionButton("Body reaction", profile.bodyTapReaction) { profile.bodyTapReaction = it })
         optionalSettings.addView(collapsibleSection("Touch reactions", touchReactions))
 
+        val props = AliveUi.column(this)
+        props.addView(AliveUi.body(this, "Choose a small prop that appears beside your Alive while it moves.", 12f))
+        props.addView(AliveUi.gap(this, 6))
+        props.addView(AliveUi.button(this, "Choose carried item", false) {
+            val items = arrayOf("📖 Book", "🌹 Flower", "🔑 Key", "☕ Coffee", "⭐ Star", "🎁 Gift", "No item")
+            val values = arrayOf("📖", "🌹", "🔑", "☕", "⭐", "🎁", "")
+            AlertDialog.Builder(this)
+                .setTitle("Carried item")
+                .setItems(items) { _, index ->
+                    profile.heldItem = values[index].takeIf { it.isNotBlank() }
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
+        props.addView(AliveUi.body(this, "Current item: ${profile.heldItem ?: "None"}", 12f))
+        optionalSettings.addView(collapsibleSection("Props & Items", props))
+
         val personality = AliveUi.column(this)
         personality.addView(AliveUi.body(this, "These values affect movement, resting and interaction timing.", 12f))
         addSettingSlider(personality, "Energy", "Higher energy means more active movement.", profile.energyLevel, 0, 100) { profile.energyLevel = it }
