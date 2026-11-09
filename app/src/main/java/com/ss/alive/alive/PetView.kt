@@ -234,19 +234,34 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         }
     }
 
-    private fun reactToTap() {
+    private fun reactToTap(localY: Float) {
         if (behavior.state == PetBehavior.State.INTERACTING) return
         AliveStatistics.recordTap(context, profile.id)
         playConfiguredSound()
-        behavior.reverse()
+        val reaction = if (localY <= height * 0.38f) profile.headTapReaction else profile.bodyTapReaction
         animationFrame = 0
+        when (reaction) {
+            "JUMP" -> behavior.jump()
+            "SIT" -> {
+                behavior.setSitting()
+                handler.postDelayed({
+                    if (!isAttachedToWindow) return@postDelayed
+                    behavior.resumeWalking()
+                    animationFrame = 0
+                    invalidate()
+                }, 1800L)
+            }
+            else -> {
+                behavior.reverse()
+                handler.postDelayed({
+                    if (!isAttachedToWindow) return@postDelayed
+                    behavior.finishReverse()
+                    animationFrame = 0
+                    invalidate()
+                }, 220L)
+            }
+        }
         invalidate()
-        handler.postDelayed({
-            if (!isAttachedToWindow) return@postDelayed
-            behavior.finishReverse()
-            animationFrame = 0
-            invalidate()
-        }, 220L)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -287,7 +302,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (!dragging) reactToTap() else behavior.startFalling()
+                if (!dragging) reactToTap(event.y) else behavior.startFalling()
                 interactionUntil = 0L
                 interactionAnimationUntil = 0L
                 animationFrame = 0
