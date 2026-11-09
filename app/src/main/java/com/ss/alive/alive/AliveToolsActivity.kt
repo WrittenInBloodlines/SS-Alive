@@ -33,6 +33,7 @@ class AliveToolsActivity : AppCompatActivity() {
 
         addScreenSetup(root)
         addPresets(root)
+        addRelationships(root)
         addOutfits(root)
         addStatistics(root)
         root.addView(AliveUi.gap(this, 8))
@@ -100,6 +101,63 @@ class AliveToolsActivity : AppCompatActivity() {
                 }
                 AliveRepository.save(this, profile)
                 Toast.makeText(this, "${names[index]} preset applied to ${profile.name}.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun addRelationships(root: LinearLayout) {
+        val card = AliveUi.column(this)
+        card.addView(AliveUi.heading(this, "Alive relationships", 19f))
+        card.addView(AliveUi.body(this, "Set how two Alives know each other. Unknown pairs will not start automatic interactions."))
+        card.addView(AliveUi.gap(this, 8))
+        card.addView(AliveUi.button(this, "Set relationship", false) { chooseRelationshipPair() })
+        root.addView(AliveUi.card(this, card))
+    }
+
+    private fun chooseRelationshipPair() {
+        val profiles = AliveRepository.all(this).filter { !it.isTemplate }
+        if (profiles.size < 2) {
+            Toast.makeText(this, "Create at least two Alives first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Choose first Alive")
+            .setItems(profiles.map { it.name }.toTypedArray()) { _, firstIndex ->
+                val first = profiles[firstIndex]
+                val others = profiles.filter { it.id != first.id }
+                AlertDialog.Builder(this)
+                    .setTitle("Choose second Alive")
+                    .setItems(others.map { it.name }.toTypedArray()) { _, secondIndex ->
+                        chooseRelationshipLevel(first, others[secondIndex])
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun chooseRelationshipLevel(first: AliveProfile, second: AliveProfile) {
+        val labels = arrayOf("Unknown", "Acquaintance", "Friend", "Close", "Special", "Custom")
+        AlertDialog.Builder(this)
+            .setTitle("${first.name} & ${second.name}")
+            .setItems(labels) { _, index ->
+                if (index == labels.lastIndex) {
+                    val input = android.widget.EditText(this).apply { hint = "Relationship name"; setSingleLine(true) }
+                    AlertDialog.Builder(this)
+                        .setTitle("Custom relationship")
+                        .setView(input)
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Save") { _, _ ->
+                            val value = input.text.toString().trim().take(24)
+                            if (value.isNotBlank()) AliveRelationshipStore.save(this, first.id, second.id, "Custom: $value")
+                        }
+                        .show()
+                } else {
+                    AliveRelationshipStore.save(this, first.id, second.id, labels[index])
+                    Toast.makeText(this, "Relationship updated.", Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -279,4 +337,21 @@ object AlivePositionStore {
         if (!prefs.contains(xKey) || !prefs.contains(yKey)) return null
         return prefs.getInt(xKey, 0) to prefs.getInt(yKey, 0)
     }
+}
+
+
+object AliveRelationshipStore {
+    private const val PREFS = "ss_alive_relationships"
+
+    private fun key(first: String, second: String): String =
+        listOf(first, second).sorted().joinToString(":")
+
+    fun save(context: android.content.Context, first: String, second: String, level: String) {
+        context.getSharedPreferences(PREFS, 0).edit()
+            .putString(key(first, second), level.take(40))
+            .apply()
+    }
+
+    fun level(context: android.content.Context, first: String, second: String): String =
+        context.getSharedPreferences(PREFS, 0).getString(key(first, second), "Acquaintance") ?: "Acquaintance"
 }
