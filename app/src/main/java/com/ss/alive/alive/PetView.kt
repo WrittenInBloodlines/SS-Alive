@@ -128,6 +128,13 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         customSprite.draw(canvas, behavior.state, animationFrame, behavior.direction)
+        profile.heldItem?.let { item ->
+            val itemPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = (height * 0.23f).coerceAtLeast(24f)
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            canvas.drawText(item, width * 0.76f, height * 0.78f, itemPaint)
+        }
     }
 
     private fun movePet() {
