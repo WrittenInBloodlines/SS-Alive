@@ -32,7 +32,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::rootView.isInitialized) showHome()
+        if (::rootView.isInitialized) {
+            AccountBridge.consumeFeedback(this)?.let { result ->
+                val message = when {
+                    result == "SUCCESS" -> "Connected to S•S Hub. Your account is up to date."
+                    result == "NO_RESPONSE" -> "S•S Hub did not respond. Please try the connection again."
+                    result == "ERROR:HUB_UNAVAILABLE" -> "Could not open S•S Hub. Make sure it is installed and try again."
+                    result == "ERROR:NOT_SIGNED_IN" -> "You are not signed in to S•S Hub. Sign in there, then refresh the connection."
+                    result == "ERROR:EMAIL_NOT_VERIFIED" -> "Your S•S Hub email is not verified yet. Verify it, then try again."
+                    result == "ERROR:PROFILE_INVALID" -> "Your S•S Hub profile could not be verified. Please sign in to Hub again."
+                    result == "ERROR:PROFILE_UNAVAILABLE" -> "Your S•S Hub profile could not be loaded. Check your connection and try again."
+                    result.startsWith("ERROR:") -> "S•S Hub could not confirm your account (${result.removePrefix("ERROR:")}). Please try again."
+                    else -> "S•S Hub connection status: $result"
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+            showHome()
+        }
     }
 
     private fun pageHeader(content: LinearLayout, section: String, title: String, subtitle: String) {
@@ -74,9 +90,7 @@ class MainActivity : AppCompatActivity() {
             ))
             accountCard.addView(AliveUi.gap(this, 12))
             accountCard.addView(AliveUi.button(this, "Refresh account connection", true) {
-                if (!AccountBridge.request(this)) {
-                    Toast.makeText(this, "Could not open S•S Hub. Make sure it is installed.", Toast.LENGTH_LONG).show()
-                }
+                refreshAccountConnection()
             })
         } else {
             accountCard.addView(AliveUi.label(this, "S•S ACCOUNT"))
@@ -93,9 +107,7 @@ class MainActivity : AppCompatActivity() {
             })
             accountCard.addView(AliveUi.gap(this, 8))
             accountCard.addView(AliveUi.button(this, "Refresh connection", false) {
-                if (!AccountBridge.request(this)) {
-                    Toast.makeText(this, "Could not open S•S Hub. Make sure it is installed.", Toast.LENGTH_LONG).show()
-                }
+                refreshAccountConnection()
             })
         }
         content.addView(AliveUi.card(this, accountCard))
@@ -291,6 +303,20 @@ class MainActivity : AppCompatActivity() {
         if (AliveService.isRunning && Settings.canDrawOverlays(this)) {
             ContextCompat.startForegroundService(this, Intent(this, AliveService::class.java)
                 .setAction(AliveService.ACTION_SHOW_EQUIPPED))
+        }
+    }
+
+    private fun refreshAccountConnection() {
+        val started = AccountBridge.requestWithFeedback(this)
+        if (started) {
+            Toast.makeText(this, "Connecting to S•S Hub…", Toast.LENGTH_SHORT).show()
+        } else {
+            AccountBridge.consumeFeedback(this)
+            Toast.makeText(
+                this,
+                "Could not open S•S Hub. Make sure it is installed and try again.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
