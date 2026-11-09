@@ -268,7 +268,7 @@ class TemplatesActivity : AppCompatActivity() {
     }
 
     private fun compressForTemplate(source: Bitmap): String {
-        val max = 256
+        val max = 128
         val scale = minOf(1f, max.toFloat() / maxOf(source.width, source.height))
         val scaled = Bitmap.createScaledBitmap(
             source,
@@ -277,7 +277,7 @@ class TemplatesActivity : AppCompatActivity() {
             true
         )
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 55, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
