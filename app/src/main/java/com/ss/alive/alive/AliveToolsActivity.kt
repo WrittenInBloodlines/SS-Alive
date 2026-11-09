@@ -259,7 +259,7 @@ class AliveToolsActivity : AppCompatActivity() {
                     }
                     AliveRepository.save(this, profile)
                     refreshRunningAlives()
-                    Toast.makeText(this, "Outfit $name restored. Restart the Alive to refresh its sprite cache.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Outfit $name restored.", Toast.LENGTH_LONG).show()
                 }
             }
             .setNeutralButton("Delete outfit") { _, _ -> chooseOutfitToDelete(saved, key) }
