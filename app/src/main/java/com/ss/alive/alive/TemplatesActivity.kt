@@ -225,14 +225,23 @@ class TemplatesActivity : AppCompatActivity() {
             .setPositiveButton("Choose photo") { _, _ ->
                 val n = name.text.toString().trim()
                 val d = description.text.toString().trim()
-                if (n.isEmpty()) {
-                    Toast.makeText(this, "Enter a template name first.", Toast.LENGTH_SHORT).show()
-                } else {
-                    getPreferences(MODE_PRIVATE).edit()
-                        .putString("pending_template_name", n)
-                        .putString("pending_template_description", d)
-                        .apply()
-                    pickTemplateImage.launch("image/*")
+                when {
+                    n.isEmpty() -> {
+                        Toast.makeText(this, "Enter a template name first.", Toast.LENGTH_SHORT).show()
+                    }
+                    n.length > 80 -> {
+                        Toast.makeText(this, "Template names must be 80 characters or fewer.", Toast.LENGTH_LONG).show()
+                    }
+                    d.length > 2000 -> {
+                        Toast.makeText(this, "Descriptions must be 2000 characters or fewer.", Toast.LENGTH_LONG).show()
+                    }
+                    else -> {
+                        getPreferences(MODE_PRIVATE).edit()
+                            .putString("pending_template_name", n)
+                            .putString("pending_template_description", d)
+                            .apply()
+                        pickTemplateImage.launch("image/*")
+                    }
                 }
             }
             .setNegativeButton("Cancel", null)
