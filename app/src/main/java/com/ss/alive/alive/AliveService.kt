@@ -23,6 +23,7 @@ import kotlin.math.hypot
 class AliveService : Service() {
     private lateinit var windowManager: WindowManager
     private val petViews = mutableListOf<PetView>()
+    private val activeSince = mutableMapOf<String, Long>()
     private val interactionHandler = Handler(Looper.getMainLooper())
     private val pairCooldownUntil = mutableMapOf<String, Long>()
     private var screenReceiverRegistered = false
@@ -126,6 +127,7 @@ class AliveService : Service() {
             runCatching {
                 windowManager.addView(view, params)
                 petViews += view
+                activeSince[profile.id] = System.currentTimeMillis()
             }
         }
     }
@@ -163,7 +165,13 @@ class AliveService : Service() {
     }
 
     private fun removePets() {
-        petViews.forEach { runCatching { windowManager.removeViewImmediate(it) } }
+        val now = System.currentTimeMillis()
+        petViews.forEach { view ->
+            activeSince.remove(view.profileId)?.let { started ->
+                AliveStatistics.recordActive(this, view.profileId, now - started)
+            }
+            runCatching { windowManager.removeViewImmediate(view) }
+        }
         petViews.clear()
     }
 
