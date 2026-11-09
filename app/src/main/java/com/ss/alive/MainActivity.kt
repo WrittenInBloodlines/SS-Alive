@@ -91,6 +91,12 @@ class MainActivity : AppCompatActivity() {
             accountCard.addView(AliveUi.button(this, "Open S•S Hub", true) {
                 openHubForSignIn()
             })
+            accountCard.addView(AliveUi.gap(this, 8))
+            accountCard.addView(AliveUi.button(this, "Refresh connection", false) {
+                if (!AccountBridge.request(this)) {
+                    Toast.makeText(this, "Could not open S•S Hub. Make sure it is installed.", Toast.LENGTH_LONG).show()
+                }
+            })
         }
         content.addView(AliveUi.card(this, accountCard))
         content.addView(AliveUi.gap(this, 10))
