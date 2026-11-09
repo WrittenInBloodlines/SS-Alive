@@ -1,6 +1,9 @@
 package com.ss.alive.alive
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -17,6 +20,27 @@ import org.json.JSONObject
  * .ssalive packages remain compatible.
  */
 class AliveToolsActivity : AppCompatActivity() {
+    private val exportBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        if (uri != null) runCatching {
+            AlivePackageManager.exportAll(this, AliveRepository.all(this).filter { !it.isTemplate }, uri)
+        }.onSuccess {
+            Toast.makeText(this, "Complete Alive backup created.", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            Toast.makeText(this, "Backup failed: ${it.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val importBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) runCatching {
+            AlivePackageManager.importAll(this, uri)
+        }.onSuccess { profiles ->
+            profiles.forEach { AliveRepository.save(this, it) }
+            Toast.makeText(this, "${profiles.size} Alives restored.", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            Toast.makeText(this, "Restore failed: ${it.message ?: "invalid backup"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildPage()
@@ -35,6 +59,7 @@ class AliveToolsActivity : AppCompatActivity() {
         addPresets(root)
         addRelationships(root)
         addOutfits(root)
+        addBackups(root)
         addStatistics(root)
         root.addView(AliveUi.gap(this, 8))
         root.addView(AliveUi.button(this, "Back to menu", false) { finish() })
@@ -244,6 +269,18 @@ class AliveToolsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun addBackups(root: LinearLayout) {
+        val card = AliveUi.column(this)
+        card.addView(AliveUi.heading(this, "Backup & restore", 19f))
+        card.addView(AliveUi.body(this, "Create one ZIP backup containing all your custom Alives, animation frames, sounds and settings, or restore them together."))
+        card.addView(AliveUi.gap(this, 8))
+        AliveUi.addButtonRow(this, card, listOf(
+            AliveUi.button(this, "Create backup", true) { exportBackup.launch("ss-alive-backup.zip") },
+            AliveUi.button(this, "Restore backup", false) { importBackup.launch(arrayOf("application/zip", "application/octet-stream")) }
+        ))
+        root.addView(AliveUi.card(this, card))
     }
 
     private fun addStatistics(root: LinearLayout) {
