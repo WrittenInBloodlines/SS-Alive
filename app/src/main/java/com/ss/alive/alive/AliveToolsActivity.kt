@@ -3,6 +3,7 @@ package com.ss.alive.alive
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import android.view.View
 import android.widget.LinearLayout
@@ -12,6 +13,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.ss.alive.ui.AliveUi
 import org.json.JSONObject
 
@@ -138,6 +140,7 @@ class AliveToolsActivity : AppCompatActivity() {
                 profile.gravityStrengthPercent = kotlin.random.Random.nextInt(50, 151)
                 profile.interactionFrequency = kotlin.random.Random.nextInt(0, 101)
                 AliveRepository.save(this, profile)
+                refreshRunningAlives()
                 Toast.makeText(this, "Random personality created for ${profile.name}.", Toast.LENGTH_SHORT).show()
             }
         })
@@ -158,6 +161,7 @@ class AliveToolsActivity : AppCompatActivity() {
                     5 -> { profile.energyLevel = 70; profile.movementSpeedPercent = 105; profile.sleepFrequency = 25; profile.curiosity = 65; profile.gravityStrengthPercent = 100; profile.interactionFrequency = 100; profile.interactionEnabled = true }
                 }
                 AliveRepository.save(this, profile)
+                refreshRunningAlives()
                 Toast.makeText(this, "${names[index]} preset applied to ${profile.name}.", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
@@ -254,6 +258,7 @@ class AliveToolsActivity : AppCompatActivity() {
                         profile.frames[state] = list
                     }
                     AliveRepository.save(this, profile)
+                    refreshRunningAlives()
                     Toast.makeText(this, "Outfit $name restored. Restart the Alive to refresh its sprite cache.", Toast.LENGTH_LONG).show()
                 }
             }
@@ -352,6 +357,16 @@ class AliveToolsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun refreshRunningAlives() {
+        if (AliveService.isRunning && Settings.canDrawOverlays(this)) {
+            ContextCompat.startForegroundService(
+                this,
+                android.content.Intent(this, AliveService::class.java)
+                    .setAction(AliveService.ACTION_SHOW_EQUIPPED)
+            )
+        }
     }
 
     companion object {
