@@ -29,36 +29,40 @@ class AliveService : Service() {
     private var screenReceiverRegistered = false
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: android.content.Intent?) {
-            if (getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_screen_off", true)) {
-                when (intent?.action) {
-                    android.content.Intent.ACTION_SCREEN_OFF -> {
+            val prefs = getSharedPreferences("ss_alive_tools", MODE_PRIVATE)
+            when (intent?.action) {
+                android.content.Intent.ACTION_SCREEN_OFF -> {
+                    if (prefs.getBoolean("pause_screen_off", true)) {
                         removePets()
                         updateNotification("Paused while screen is off")
                     }
-                    android.content.Intent.ACTION_SCREEN_ON -> {
-                        if (Settings.canDrawOverlays(this@AliveService) &&
-                            !getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_other_apps", false)
+                }
+                android.content.Intent.ACTION_SCREEN_ON -> {
+                    if (prefs.getBoolean("pause_screen_off", true) &&
+                        !prefs.getBoolean("pause_other_apps", false) &&
+                        Settings.canDrawOverlays(this@AliveService)
+                    ) {
+                        showPets()
+                        updateNotification("Your equipped Alives are active")
+                    }
+                }
+                ACTION_FOREGROUND_APP -> {
+                    if (prefs.getBoolean("pause_other_apps", false)) {
+                        val foreground = intent.getStringExtra(EXTRA_FOREGROUND_PACKAGE)
+                        val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                            .addCategory(android.content.Intent.CATEGORY_HOME)
+                        val homePackage = packageManager.resolveActivity(
+                            homeIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+                        )?.activityInfo?.packageName
+                        val power = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                        if (!foreground.isNullOrBlank() && foreground == homePackage && power.isInteractive &&
+                            Settings.canDrawOverlays(this@AliveService)
                         ) {
                             showPets()
                             updateNotification("Your equipped Alives are active")
-                        }
-                    }
-                    ACTION_FOREGROUND_APP -> {
-                        if (getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_other_apps", false)) {
-                            val foreground = intent.getStringExtra(EXTRA_FOREGROUND_PACKAGE)
-                            val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
-                                .addCategory(android.content.Intent.CATEGORY_HOME)
-                            val homePackage = packageManager.resolveActivity(
-                                homeIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
-                            )?.activityInfo?.packageName
-                            val power = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-                            if (!foreground.isNullOrBlank() && foreground == homePackage && power.isInteractive) {
-                                showPets()
-                                updateNotification("Your equipped Alives are active")
-                            } else {
-                                removePets()
-                                updateNotification("Paused while using another app")
-                            }
+                        } else {
+                            removePets()
+                            updateNotification("Paused while using another app")
                         }
                     }
                 }
