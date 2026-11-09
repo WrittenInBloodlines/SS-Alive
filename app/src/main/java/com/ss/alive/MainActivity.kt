@@ -98,6 +98,9 @@ class MainActivity : AppCompatActivity() {
         AliveUi.addButtonRow(this, status, listOf(
             AliveUi.button(this, "Start equipped", true) { startEquipped() },
             AliveUi.button(this, "Stop all", false) {
+                getSharedPreferences(AliveService.RUNTIME_PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(AliveService.KEY_AUTO_RESTORE, false)
+                    .apply()
                 stopService(Intent(this, AliveService::class.java))
                 Toast.makeText(this, "S•S Alive paused.", Toast.LENGTH_SHORT).show()
             }
