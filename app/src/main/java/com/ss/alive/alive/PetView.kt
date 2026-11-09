@@ -11,6 +11,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import kotlin.math.abs
 
 class PetView(context: Context, private val profile: AliveProfile) : View(context) {
@@ -19,7 +20,23 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var startX = 0
     private var startY = 0
     private var dragging = false
+    private var longPressTriggered = false
     private val handler = Handler(Looper.getMainLooper())
+    private val longPressRunnable = Runnable {
+        if (isAttachedToWindow && !dragging) {
+            val availableItems = listOf("📖", "🌹", "🔑", "☕", "⭐", "🎁")
+            if (profile.heldItem == null) {
+                profile.heldItem = availableItems.random()
+                Toast.makeText(context, "Picked up ${profile.heldItem}", Toast.LENGTH_SHORT).show()
+            } else {
+                profile.heldItem = null
+                Toast.makeText(context, "Item put down", Toast.LENGTH_SHORT).show()
+            }
+            AliveRepository.save(context, profile)
+            longPressTriggered = true
+            invalidate()
+        }
+    }
     private val behavior = PetBehavior(
         speedPxPerTick = (4f * profile.movementSpeedPercent.coerceIn(50, 150) / 100f *
             (0.75f + profile.energyLevel.coerceIn(0, 100) / 250f)).toInt().coerceIn(1, 8),
@@ -282,6 +299,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val maxY = (screenHeight - petHeight).coerceAtLeast(0)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                longPressTriggered = false
+                handler.postDelayed(longPressRunnable, 550L)
                 downX = event.rawX
                 downY = event.rawY
                 startX = params.x
@@ -293,6 +312,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
                 if (!dragging && (abs(dx) > 8 || abs(dy) > 8)) {
+                    handler.removeCallbacks(longPressRunnable)
                     dragging = true
                     interactionUntil = 0L
                     interactionAnimationUntil = 0L
@@ -309,7 +329,8 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (!dragging) reactToTap(event.y) else {
+                handler.removeCallbacks(longPressRunnable)
+                if (!dragging && !longPressTriggered) reactToTap(event.y) else if (dragging) {
                     AlivePositionStore.save(context, profile.id, params.x, params.y)
                     behavior.startFalling()
                 }
@@ -321,6 +342,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                handler.removeCallbacks(longPressRunnable)
                 if (dragging) behavior.startFalling()
                 interactionUntil = 0L
                 interactionAnimationUntil = 0L
