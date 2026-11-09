@@ -16,7 +16,64 @@ object AccountBridge {
     const val ACTION_LIST_TEMPLATES = "LIST_TEMPLATES"
     const val ACTION_CREATE_TEMPLATE = "CREATE_TEMPLATE"
 
+    private const val FEEDBACK_PREFS = "ss_alive_account_bridge_feedback"
+    private const val KEY_PENDING = "pending"
+    private const val KEY_RESULT = "result"
+    private const val KEY_ERROR = "error"
+
     fun request(context: Context): Boolean = launch(context, null)
+
+    /**
+     * Starts an account refresh and records that the next callback should be shown to the user.
+     */
+    fun requestWithFeedback(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean(KEY_PENDING, true)
+            .remove(KEY_RESULT)
+            .remove(KEY_ERROR)
+            .apply()
+
+        val started = launch(context, null)
+        if (!started) {
+            prefs.edit()
+                .putBoolean(KEY_PENDING, false)
+                .putString(KEY_RESULT, "ERROR")
+                .putString(KEY_ERROR, "HUB_UNAVAILABLE")
+                .apply()
+        }
+        return started
+    }
+
+    /**
+     * Returns one result exactly once. If Hub returned without sending a callback,
+     * the still-pending request is reported as NO_RESPONSE.
+     */
+    fun consumeFeedback(context: Context): String? {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_PENDING, false)) {
+            prefs.edit().putBoolean(KEY_PENDING, false).apply()
+            return "NO_RESPONSE"
+        }
+
+        val result = prefs.getString(KEY_RESULT, null) ?: return null
+        val error = prefs.getString(KEY_ERROR, null)
+        prefs.edit().remove(KEY_RESULT).remove(KEY_ERROR).apply()
+        return if (result == "ERROR") "ERROR:${error ?: "UNKNOWN"}" else result
+    }
+
+    internal fun saveFeedbackResult(context: Context, error: String?) {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_PENDING, false)) return
+
+        prefs.edit()
+            .putBoolean(KEY_PENDING, false)
+            .putString(KEY_RESULT, if (error == null) "SUCCESS" else "ERROR")
+            .apply {
+                if (error == null) remove(KEY_ERROR) else putString(KEY_ERROR, error)
+            }
+            .apply()
+    }
 
     fun requestTemplates(context: Context): Boolean = launch(context, ACTION_LIST_TEMPLATES)
 
