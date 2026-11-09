@@ -15,6 +15,7 @@ import com.ss.alive.alive.AliveEditorActivity
 import com.ss.alive.alive.AliveProfile
 import com.ss.alive.alive.AliveRepository
 import com.ss.alive.alive.AliveService
+import com.ss.alive.alive.AliveToolsActivity
 import com.ss.alive.alive.TemplatesActivity
 import com.ss.alive.ui.AliveUi
 
@@ -69,6 +70,9 @@ class MainActivity : AppCompatActivity() {
         })
         content.addView(AliveUi.menuTile(this, "Personality", "Adjust how each Alive moves, rests and interacts.") {
             showPersonality()
+        })
+        content.addView(AliveUi.menuTile(this, "Alive Studio", "Screen zones, behavior presets, outfits and statistics.") {
+            startActivity(Intent(this, AliveToolsActivity::class.java))
         })
         content.addView(AliveUi.menuTile(this, "Settings", "Permissions and screen behavior.") {
             showSettings()
