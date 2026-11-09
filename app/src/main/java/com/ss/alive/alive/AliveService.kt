@@ -36,9 +36,29 @@ class AliveService : Service() {
                         updateNotification("Paused while screen is off")
                     }
                     android.content.Intent.ACTION_SCREEN_ON -> {
-                        if (Settings.canDrawOverlays(this@AliveService)) {
+                        if (Settings.canDrawOverlays(this@AliveService) &&
+                            !getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_other_apps", false)
+                        ) {
                             showPets()
                             updateNotification("Your equipped Alives are active")
+                        }
+                    }
+                    ACTION_FOREGROUND_APP -> {
+                        if (getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_other_apps", false)) {
+                            val foreground = intent.getStringExtra(EXTRA_FOREGROUND_PACKAGE)
+                            val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                                .addCategory(android.content.Intent.CATEGORY_HOME)
+                            val homePackage = packageManager.resolveActivity(
+                                homeIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+                            )?.activityInfo?.packageName
+                            val power = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                            if (!foreground.isNullOrBlank() && foreground == homePackage && power.isInteractive) {
+                                showPets()
+                                updateNotification("Your equipped Alives are active")
+                            } else {
+                                removePets()
+                                updateNotification("Paused while using another app")
+                            }
                         }
                     }
                 }
@@ -62,6 +82,7 @@ class AliveService : Service() {
         ContextCompat.registerReceiver(this, screenReceiver, IntentFilter().apply {
             addAction(android.content.Intent.ACTION_SCREEN_OFF)
             addAction(android.content.Intent.ACTION_SCREEN_ON)
+            addAction(ACTION_FOREGROUND_APP)
         }, ContextCompat.RECEIVER_NOT_EXPORTED)
         screenReceiverRegistered = true
         interactionHandler.post(interactionRunnable)
@@ -228,6 +249,8 @@ class AliveService : Service() {
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
         const val ACTION_HIDE = "com.ss.alive.action.HIDE"
         const val ACTION_STOP = "com.ss.alive.action.STOP"
+        const val ACTION_FOREGROUND_APP = "com.ss.alive.action.FOREGROUND_APP"
+        const val EXTRA_FOREGROUND_PACKAGE = "foreground_package"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
     }
