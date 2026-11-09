@@ -10,6 +10,8 @@ data class AliveProfile(
     var templateKind: String = "CUSTOM",
     var sizePercent: Int = 55,
     var interactionEnabled: Boolean = false,
+    var headTapReaction: String = "TURN",
+    var bodyTapReaction: String = "JUMP",
     var ghostMode: Boolean = false,
     var energyLevel: Int = 50,
     var movementSpeedPercent: Int = 100,
@@ -49,6 +51,8 @@ data class AliveProfile(
                 templateKind = root.optString("templateKind", "CUSTOM"),
                 sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200),
                 interactionEnabled = root.optBoolean("interactionEnabled", false),
+                headTapReaction = root.optString("headTapReaction", "TURN").uppercase().takeIf { it in setOf("TURN", "JUMP", "SIT") } ?: "TURN",
+                bodyTapReaction = root.optString("bodyTapReaction", "JUMP").uppercase().takeIf { it in setOf("TURN", "JUMP", "SIT") } ?: "JUMP",
                 ghostMode = root.optBoolean("ghostMode", false),
                 energyLevel = root.optInt("energyLevel", 50).coerceIn(0, 100),
                 movementSpeedPercent = root.optInt("movementSpeedPercent", 100).coerceIn(50, 150),
@@ -89,6 +93,8 @@ data class AliveProfile(
             put("templateKind", "CUSTOM")
             put("sizePercent", sizePercent.coerceIn(25, 200))
             put("interactionEnabled", interactionEnabled)
+            put("headTapReaction", headTapReaction)
+            put("bodyTapReaction", bodyTapReaction)
             put("ghostMode", ghostMode)
             put("energyLevel", energyLevel.coerceIn(0, 100))
             put("movementSpeedPercent", movementSpeedPercent.coerceIn(50, 150))
