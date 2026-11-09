@@ -2,6 +2,7 @@ package com.ss.alive.alive
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.PendingIntent
 import android.app.NotificationManager
 import android.app.Service
 import android.graphics.PixelFormat
@@ -42,9 +43,29 @@ class AliveService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        removePets()
-        pairCooldownUntil.clear()
-        showPets()
+        when (intent?.action) {
+            ACTION_HIDE -> {
+                removePets()
+                updateNotification("Alives hidden")
+                return START_STICKY
+            }
+            ACTION_STOP -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_SHOW_EQUIPPED, null -> {
+                removePets()
+                pairCooldownUntil.clear()
+                showPets()
+                updateNotification("Your equipped Alives are active")
+            }
+            else -> {
+                removePets()
+                pairCooldownUntil.clear()
+                showPets()
+                updateNotification("Your equipped Alives are active")
+            }
+        }
         return START_STICKY
     }
 
@@ -130,12 +151,29 @@ class AliveService : Service() {
         }
     }
 
-    private fun buildNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.ic_menu_compass)
-        .setContentTitle("S•S Alive")
-        .setContentText("Your equipped Alives are active")
-        .setOngoing(true)
-        .build()
+    private fun updateNotification(message: String) {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTIFICATION_ID, buildNotification(message))
+    }
+
+    private fun serviceAction(action: String, requestCode: Int): PendingIntent {
+        val intent = android.content.Intent(this, AliveService::class.java).setAction(action)
+        return PendingIntent.getService(
+            this, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun buildNotification(message: String = "Your equipped Alives are active"): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentTitle("S•S Alive")
+            .setContentText(message)
+            .setOngoing(true)
+            .addAction(0, "Show", serviceAction(ACTION_SHOW_EQUIPPED, 1))
+            .addAction(0, "Hide", serviceAction(ACTION_HIDE, 2))
+            .addAction(0, "Stop", serviceAction(ACTION_STOP, 3))
+            .build()
 
     companion object {
         @Volatile
@@ -143,6 +181,8 @@ class AliveService : Service() {
         val isRunning: Boolean get() = serviceIsRunning
         private const val INTERACTION_COOLDOWN_MS = 5000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
+        const val ACTION_HIDE = "com.ss.alive.action.HIDE"
+        const val ACTION_STOP = "com.ss.alive.action.STOP"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
     }
