@@ -73,6 +73,7 @@ class AliveEditorActivity : AppCompatActivity() {
     }
 
     private fun buildEditor() {
+        if (::preview.isInitialized) preview.stop()
         val (scroll, root) = AliveUi.scrollPage(this)
         val isEditing = intent.getStringExtra(EXTRA_ID) != null
 
