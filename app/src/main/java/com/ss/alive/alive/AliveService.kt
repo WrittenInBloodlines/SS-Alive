@@ -215,9 +215,9 @@ class AliveService : Service() {
             .setContentTitle("S•S Alive")
             .setContentText(message)
             .setOngoing(true)
-            .addAction(0, "Show", serviceAction(ACTION_SHOW_EQUIPPED, 1))
-            .addAction(0, "Hide", serviceAction(ACTION_HIDE, 2))
-            .addAction(0, "Stop", serviceAction(ACTION_STOP, 3))
+            .addAction(android.R.drawable.ic_media_play, "Show", serviceAction(ACTION_SHOW_EQUIPPED, 1))
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Hide", serviceAction(ACTION_HIDE, 2))
+            .addAction(android.R.drawable.ic_delete, "Stop", serviceAction(ACTION_STOP, 3))
             .build()
 
     companion object {
