@@ -5,6 +5,9 @@ import android.app.NotificationChannel
 import android.app.PendingIntent
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -21,6 +24,25 @@ class AliveService : Service() {
     private val petViews = mutableListOf<PetView>()
     private val interactionHandler = Handler(Looper.getMainLooper())
     private val pairCooldownUntil = mutableMapOf<String, Long>()
+    private var screenReceiverRegistered = false
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (getSharedPreferences("ss_alive_tools", MODE_PRIVATE).getBoolean("pause_screen_off", true)) {
+                when (intent?.action) {
+                    android.content.Intent.ACTION_SCREEN_OFF -> {
+                        removePets()
+                        updateNotification("Paused while screen is off")
+                    }
+                    android.content.Intent.ACTION_SCREEN_ON -> {
+                        if (Settings.canDrawOverlays(this@AliveService)) {
+                            showPets()
+                            updateNotification("Your equipped Alives are active")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private val interactionRunnable = object : Runnable {
         override fun run() {
@@ -35,6 +57,11 @@ class AliveService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        registerReceiver(screenReceiver, IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_SCREEN_OFF)
+            addAction(android.content.Intent.ACTION_SCREEN_ON)
+        })
+        screenReceiverRegistered = true
         interactionHandler.post(interactionRunnable)
     }
 
@@ -142,6 +169,10 @@ class AliveService : Service() {
     override fun onDestroy() {
         interactionHandler.removeCallbacksAndMessages(null)
         pairCooldownUntil.clear()
+        if (screenReceiverRegistered) {
+            runCatching { unregisterReceiver(screenReceiver) }
+            screenReceiverRegistered = false
+        }
         removePets()
         serviceIsRunning = false
         super.onDestroy()
