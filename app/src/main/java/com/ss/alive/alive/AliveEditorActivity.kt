@@ -183,6 +183,13 @@ class AliveEditorActivity : AppCompatActivity() {
         behavior.addView(AliveUi.body(this, "Makes this Alive partly transparent and lets taps pass through it.", 12f))
         optionalSettings.addView(collapsibleSection("Behavior & Ghost Mode", behavior))
 
+        val touchReactions = AliveUi.column(this)
+        touchReactions.addView(AliveUi.body(this, "Choose what happens when the head or body is tapped.", 12f))
+        touchReactions.addView(AliveUi.gap(this, 6))
+        touchReactions.addView(reactionButton("Head reaction", profile.headTapReaction) { profile.headTapReaction = it })
+        touchReactions.addView(reactionButton("Body reaction", profile.bodyTapReaction) { profile.bodyTapReaction = it })
+        optionalSettings.addView(collapsibleSection("Touch reactions", touchReactions))
+
         val personality = AliveUi.column(this)
         personality.addView(AliveUi.body(this, "These values affect movement, resting and interaction timing.", 12f))
         addSettingSlider(personality, "Energy", "Higher energy means more active movement.", profile.energyLevel, 0, 100) { profile.energyLevel = it }
@@ -343,6 +350,8 @@ class AliveEditorActivity : AppCompatActivity() {
         AliveUi.addButtonRow(this, container, actions)
         if (frames.isNotEmpty()) {
             container.addView(AliveUi.gap(this, 6))
+            container.addView(AliveUi.button(this, "Manage frame order", false) { manageFrames(state) })
+            container.addView(AliveUi.gap(this, 6))
             container.addView(AliveUi.button(this, "Remove all frames", false) {
                 AlertDialog.Builder(this)
                     .setTitle("Remove animation frames?")
@@ -356,6 +365,53 @@ class AliveEditorActivity : AppCompatActivity() {
                     .show()
             })
         }
+    }
+
+    private fun reactionButton(title: String, current: String, onSelected: (String) -> Unit): Button =
+        AliveUi.button(this, "$title  •  $current", false) {
+            val choices = arrayOf("Turn around", "Jump", "Sit briefly")
+            val values = arrayOf("TURN", "JUMP", "SIT")
+            AlertDialog.Builder(this)
+                .setTitle(title)
+                .setItems(choices) { _, index ->
+                    onSelected(values[index])
+                    // Rebuild the editor so the selected value is visible.
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+    private fun manageFrames(state: String) {
+        val frames = profile.frames.getOrPut(state) { mutableListOf() }
+        if (frames.isEmpty()) return
+        val labels = frames.indices.map { "Frame ${it + 1}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Manage ${state.titleCase()} frames")
+            .setItems(labels) { _, selected ->
+                val actions = arrayOf("Move earlier", "Move later", "Remove frame")
+                AlertDialog.Builder(this)
+                    .setTitle(labels[selected])
+                    .setItems(actions) { _, action ->
+                        when (action) {
+                            0 -> if (selected > 0) {
+                                val item = frames.removeAt(selected)
+                                frames.add(selected - 1, item)
+                            }
+                            1 -> if (selected < frames.lastIndex) {
+                                val item = frames.removeAt(selected)
+                                frames.add(selected + 1, item)
+                            }
+                            2 -> frames.removeAt(selected)
+                        }
+                        refreshState(state)
+                        if (preview.currentState == state) preview.restart(frames, profile.speedFps(state), state)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun startPreview(state: String) {
