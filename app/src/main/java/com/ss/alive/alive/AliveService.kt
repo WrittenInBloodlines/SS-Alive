@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlin.math.hypot
 
 class AliveService : Service() {
@@ -57,10 +58,10 @@ class AliveService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        registerReceiver(screenReceiver, IntentFilter().apply {
+        ContextCompat.registerReceiver(this, screenReceiver, IntentFilter().apply {
             addAction(android.content.Intent.ACTION_SCREEN_OFF)
             addAction(android.content.Intent.ACTION_SCREEN_ON)
-        })
+        }, ContextCompat.RECEIVER_NOT_EXPORTED)
         screenReceiverRegistered = true
         interactionHandler.post(interactionRunnable)
     }
