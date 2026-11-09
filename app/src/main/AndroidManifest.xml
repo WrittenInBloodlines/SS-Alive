@@ -20,6 +20,9 @@
         <activity
             android:name=".alive.AliveEditorActivity"
             android:exported="false" />
+        <activity
+            android:name=".alive.AliveToolsActivity"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
