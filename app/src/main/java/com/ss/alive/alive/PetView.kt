@@ -39,11 +39,13 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     }
     private val behavior = PetBehavior(
         speedPxPerTick = (4f * profile.movementSpeedPercent.coerceIn(50, 150) / 100f *
-            (0.75f + profile.energyLevel.coerceIn(0, 100) / 250f)).toInt().coerceIn(1, 8),
-        idleChance = (0.002f + profile.sleepFrequency.coerceIn(0, 100) * 0.00003f -
-            profile.energyLevel.coerceIn(0, 100) * 0.000015f).coerceIn(0.0005f, 0.005f),
+            (0.75f + profile.energyLevel.coerceIn(0, 100) / 250f) *
+            when (profile.mood) { "CHEERFUL" -> 1.12f; "SLEEPY" -> 0.78f; "CALM" -> 0.9f; "ENERGETIC" -> 1.22f; else -> 1f }).toInt().coerceIn(1, 8),
+        idleChance = ((0.002f + profile.sleepFrequency.coerceIn(0, 100) * 0.00003f -
+            profile.energyLevel.coerceIn(0, 100) * 0.000015f) *
+            when (profile.mood) { "SLEEPY" -> 1.8f; "CALM" -> 1.25f; "CHEERFUL", "ENERGETIC" -> 0.7f; else -> 1f }).coerceIn(0.0005f, 0.008f),
         idleDurationMultiplier = 0.7f + profile.sleepFrequency.coerceIn(0, 100) / 100f * 1.5f,
-        curiosityLevel = profile.curiosity,
+        curiosityLevel = (profile.curiosity + if (profile.mood == "CURIOUS") 35 else 0).coerceAtMost(100),
         gravityMultiplier = profile.gravityStrengthPercent.coerceIn(50, 150) / 100f
     )
     private var interactionCooldownUntil = 0L
