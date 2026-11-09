@@ -26,7 +26,7 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         val error = intent.getStringExtra(EXTRA_ERROR)
         val uid = intent.getStringExtra(EXTRA_UID)
         if (error != null || uid.isNullOrBlank()) {
-            if (error == "NOT_SIGNED_IN") AliveAccountStore.clear(context)
+            AliveAccountStore.clear(context)
             return
         }
 
