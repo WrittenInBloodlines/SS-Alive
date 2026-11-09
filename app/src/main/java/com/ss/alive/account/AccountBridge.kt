@@ -35,7 +35,9 @@ object AccountBridge {
 
     private fun launch(context: Context, intent: Intent): Boolean {
         val callbackIntent = Intent(context, AccountBridgeReceiver::class.java)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // Hub returns the account/template payload through this explicit callback.
+        // Mutable is required so PendingIntent.send(..., fillInIntent) can attach result extras.
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         val callback = PendingIntent.getBroadcast(context, REQUEST_CODE, callbackIntent, flags)
         intent.putExtra("com.ss.hub.account_bridge.CALLBACK", callback)
         return try {
