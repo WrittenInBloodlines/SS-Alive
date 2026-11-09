@@ -305,7 +305,7 @@ class AliveToolsActivity : AppCompatActivity() {
             profiles.forEach { profile ->
                 val stats = AliveStatistics.read(this, profile.id)
                 card.addView(AliveUi.heading(this, profile.name, 16f))
-                card.addView(AliveUi.body(this, "Taps: ${stats.first}   •   Landings: ${stats.second}", 12f))
+                card.addView(AliveUi.body(this, "Taps: ${stats.first}   •   Landings: ${stats.second}   •   Active: ${stats.third / 60000L} min", 12f))
                 card.addView(AliveUi.button(this, "Reset ${profile.name} statistics", false) {
                     AliveStatistics.reset(this, profile.id)
                     Toast.makeText(this, "Statistics reset. Reopen Alive Studio to refresh.", Toast.LENGTH_SHORT).show()
@@ -350,13 +350,23 @@ object AliveStatistics {
         p.edit().putInt("${id}_landings", p.getInt("${id}_landings", 0) + 1).apply()
     }
 
-    fun read(context: android.content.Context, id: String): Pair<Int, Int> {
+    fun recordActive(context: android.content.Context, id: String, durationMs: Long) {
+        if (durationMs <= 0L) return
         val p = prefs(context)
-        return p.getInt("${id}_taps", 0) to p.getInt("${id}_landings", 0)
+        p.edit().putLong("${id}_active_ms", p.getLong("${id}_active_ms", 0L) + durationMs).apply()
+    }
+
+    fun read(context: android.content.Context, id: String): Triple<Int, Int, Long> {
+        val p = prefs(context)
+        return Triple(
+            p.getInt("${id}_taps", 0),
+            p.getInt("${id}_landings", 0),
+            p.getLong("${id}_active_ms", 0L)
+        )
     }
 
     fun reset(context: android.content.Context, id: String) {
-        prefs(context).edit().remove("${id}_taps").remove("${id}_landings").apply()
+        prefs(context).edit().remove("${id}_taps").remove("${id}_landings").remove("${id}_active_ms").apply()
     }
 }
 
