@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.CheckBox
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -75,6 +76,15 @@ class AliveToolsActivity : AppCompatActivity() {
         addZoneSlider(card, "Right reserved area", "right", prefs.getInt("right", 0))
         addZoneSlider(card, "Top reserved area", "top", prefs.getInt("top", 0))
         addZoneSlider(card, "Bottom reserved area", "bottom", prefs.getInt("bottom", 0))
+        card.addView(CheckBox(this).apply {
+            text = "Pause Alives while the screen is off"
+            setTextColor(AliveUi.text)
+            buttonTintList = android.content.res.ColorStateList.valueOf(AliveUi.blue)
+            isChecked = prefs.getBoolean("pause_screen_off", true)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean("pause_screen_off", checked).apply()
+            }
+        })
         card.addView(AliveUi.body(this, "Changes apply the next time equipped Alives are started. Keep the values modest so characters still have room to move.", 11f))
         root.addView(AliveUi.card(this, card))
     }
