@@ -90,6 +90,10 @@ class AliveService : Service() {
                 val spacing = (screenWidth / (profiles.size + 1)).coerceAtLeast(110)
                 x = (spacing * (index + 1) - size / 2).coerceIn(0, (screenWidth - size).coerceAtLeast(0))
                 y = (resources.displayMetrics.heightPixels * 0.58f).toInt()
+                AlivePositionStore.load(this@AliveService, profile.id)?.let { saved ->
+                    x = saved.first.coerceIn(0, (screenWidth - size).coerceAtLeast(0))
+                    y = saved.second.coerceIn(0, (resources.displayMetrics.heightPixels - size).coerceAtLeast(0))
+                }
             }
             runCatching {
                 windowManager.addView(view, params)
