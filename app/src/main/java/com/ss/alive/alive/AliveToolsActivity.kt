@@ -118,6 +118,19 @@ class AliveToolsActivity : AppCompatActivity() {
         card.addView(AliveUi.button(this, "Choose Alive and preset", true) {
             chooseAlive { profile -> choosePreset(profile) }
         })
+        card.addView(AliveUi.gap(this, 6))
+        card.addView(AliveUi.button(this, "Generate random personality", false) {
+            chooseAlive { profile ->
+                profile.energyLevel = kotlin.random.Random.nextInt(0, 101)
+                profile.movementSpeedPercent = kotlin.random.Random.nextInt(50, 151)
+                profile.sleepFrequency = kotlin.random.Random.nextInt(0, 101)
+                profile.curiosity = kotlin.random.Random.nextInt(0, 101)
+                profile.gravityStrengthPercent = kotlin.random.Random.nextInt(50, 151)
+                profile.interactionFrequency = kotlin.random.Random.nextInt(0, 101)
+                AliveRepository.save(this, profile)
+                Toast.makeText(this, "Random personality created for ${profile.name}.", Toast.LENGTH_SHORT).show()
+            }
+        })
         root.addView(AliveUi.card(this, card))
     }
 
