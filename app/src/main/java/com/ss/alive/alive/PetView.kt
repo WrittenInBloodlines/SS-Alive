@@ -302,7 +302,10 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (!dragging) reactToTap(event.y) else behavior.startFalling()
+                if (!dragging) reactToTap(event.y) else {
+                    AlivePositionStore.save(context, profile.id, params.x, params.y)
+                    behavior.startFalling()
+                }
                 interactionUntil = 0L
                 interactionAnimationUntil = 0L
                 animationFrame = 0
