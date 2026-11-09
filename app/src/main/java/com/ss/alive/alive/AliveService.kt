@@ -38,7 +38,8 @@ class AliveService : Service() {
                     }
                 }
                 android.content.Intent.ACTION_SCREEN_ON -> {
-                    if (prefs.getBoolean("pause_screen_off", true) &&
+                    if (isAutoRestoreEnabled() &&
+                        prefs.getBoolean("pause_screen_off", true) &&
                         !prefs.getBoolean("pause_other_apps", false) &&
                         Settings.canDrawOverlays(this@AliveService)
                     ) {
@@ -99,28 +100,49 @@ class AliveService : Service() {
         }
         when (intent?.action) {
             ACTION_HIDE -> {
+                setAutoRestore(false)
                 removePets()
                 updateNotification("Alives hidden")
                 return START_STICKY
             }
             ACTION_STOP -> {
+                setAutoRestore(false)
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_SHOW_EQUIPPED, null -> {
-                removePets()
-                pairCooldownUntil.clear()
-                showPets()
-                updateNotification("Your equipped Alives are active")
+            ACTION_SHOW_EQUIPPED -> {
+                setAutoRestore(true)
+                restoreEquippedAlives()
+            }
+            ACTION_RESTORE_EQUIPPED, null -> {
+                if (isAutoRestoreEnabled()) restoreEquippedAlives() else stopSelf()
             }
             else -> {
-                removePets()
-                pairCooldownUntil.clear()
-                showPets()
-                updateNotification("Your equipped Alives are active")
+                if (isAutoRestoreEnabled()) restoreEquippedAlives() else stopSelf()
             }
         }
         return START_STICKY
+    }
+
+    private fun restoreEquippedAlives() {
+        if (!Settings.canDrawOverlays(this) || AliveRepository.equipped(this).isEmpty()) {
+            setAutoRestore(false)
+            stopSelf()
+            return
+        }
+        removePets()
+        pairCooldownUntil.clear()
+        showPets()
+        updateNotification("Your equipped Alives are active")
+    }
+
+    private fun isAutoRestoreEnabled(): Boolean =
+        getSharedPreferences(RUNTIME_PREFS, MODE_PRIVATE).getBoolean(KEY_AUTO_RESTORE, false)
+
+    private fun setAutoRestore(enabled: Boolean) {
+        getSharedPreferences(RUNTIME_PREFS, MODE_PRIVATE).edit()
+            .putBoolean(KEY_AUTO_RESTORE, enabled)
+            .apply()
     }
 
     private fun showPets() {
@@ -192,6 +214,9 @@ class AliveService : Service() {
     private fun removePets() {
         val now = System.currentTimeMillis()
         petViews.forEach { view ->
+            (view.layoutParams as? WindowManager.LayoutParams)?.let { params ->
+                AlivePositionStore.save(this, view.profileId, params.x, params.y)
+            }
             activeSince.remove(view.profileId)?.let { started ->
                 AliveStatistics.recordActive(this, view.profileId, now - started)
             }
@@ -251,11 +276,14 @@ class AliveService : Service() {
         val isRunning: Boolean get() = serviceIsRunning
         private const val INTERACTION_COOLDOWN_MS = 5000L
         const val ACTION_SHOW_EQUIPPED = "com.ss.alive.action.SHOW_EQUIPPED"
+        const val ACTION_RESTORE_EQUIPPED = "com.ss.alive.action.RESTORE_EQUIPPED"
         const val ACTION_HIDE = "com.ss.alive.action.HIDE"
         const val ACTION_STOP = "com.ss.alive.action.STOP"
         const val ACTION_FOREGROUND_APP = "com.ss.alive.action.FOREGROUND_APP"
         const val EXTRA_FOREGROUND_PACKAGE = "foreground_package"
         private const val CHANNEL_ID = "ss_alive"
         private const val NOTIFICATION_ID = 1001
+        const val RUNTIME_PREFS = "ss_alive_runtime"
+        const val KEY_AUTO_RESTORE = "auto_restore_equipped"
     }
 }
