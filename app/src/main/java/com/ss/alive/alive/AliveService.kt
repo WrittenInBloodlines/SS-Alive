@@ -48,7 +48,7 @@ class AliveService : Service() {
                     }
                 }
                 ACTION_FOREGROUND_APP -> {
-                    if (prefs.getBoolean("pause_other_apps", false)) {
+                    if (isAutoRestoreEnabled() && prefs.getBoolean("pause_other_apps", false)) {
                         val foreground = intent.getStringExtra(EXTRA_FOREGROUND_PACKAGE)
                         val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
                             .addCategory(android.content.Intent.CATEGORY_HOME)
