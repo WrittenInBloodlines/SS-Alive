@@ -9,6 +9,9 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         val templateJson = intent.getStringExtra(EXTRA_TEMPLATE_JSON)
         val templateError = intent.getStringExtra(EXTRA_TEMPLATE_ERROR)
         if (templateJson != null || templateError != null) {
+            if (templateError == "NOT_SIGNED_IN" || templateError == "EMAIL_NOT_VERIFIED") {
+                AliveAccountStore.clear(context)
+            }
             context.getSharedPreferences(TEMPLATE_RESULT_PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(TEMPLATE_RESULT_JSON, templateJson)
