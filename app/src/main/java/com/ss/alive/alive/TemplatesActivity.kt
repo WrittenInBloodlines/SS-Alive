@@ -259,7 +259,12 @@ class TemplatesActivity : AppCompatActivity() {
             Toast.makeText(this, "Could not read that image.", Toast.LENGTH_SHORT).show()
             return
         }
-        val started = AccountBridge.createTemplate(this, name, description, compressForTemplate(bitmap))
+        val imageData = compressForTemplate(bitmap)
+        if (imageData.isBlank() || imageData.length > 30000) {
+            Toast.makeText(this, "This image could not be compressed small enough. Please choose another image.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val started = AccountBridge.createTemplate(this, name, description, imageData)
         if (started) {
             Toast.makeText(this, "Publishing template...", Toast.LENGTH_SHORT).show()
         } else {
