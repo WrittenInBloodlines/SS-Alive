@@ -133,13 +133,26 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private fun movePet() {
         val params = layoutParams as? WindowManager.LayoutParams ?: return
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val screenWidth = resources.displayMetrics.widthPixels
-        val screenHeight = resources.displayMetrics.heightPixels
+        val metrics = resources.displayMetrics
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
         val petWidth = measuredWidth.coerceAtLeast(width).coerceAtLeast(params.width)
         val petHeight = measuredHeight.coerceAtLeast(height).coerceAtLeast(params.height)
+        val zonePrefs = context.getSharedPreferences("ss_alive_tools", Context.MODE_PRIVATE)
+        val leftInset = (screenWidth * zonePrefs.getInt("left", 0).coerceIn(0, 35) / 100f).toInt()
+        val rightInset = (screenWidth * zonePrefs.getInt("right", 0).coerceIn(0, 35) / 100f).toInt()
+        val topInset = (screenHeight * zonePrefs.getInt("top", 0).coerceIn(0, 35) / 100f).toInt()
+        val bottomInset = (screenHeight * zonePrefs.getInt("bottom", 0).coerceIn(0, 35) / 100f).toInt()
+        val usableWidth = (screenWidth - leftInset - rightInset).coerceAtLeast(petWidth)
+        val usableHeight = (screenHeight - topInset - bottomInset).coerceAtLeast(petHeight)
         val previousY = params.y
         val previousState = behavior.state
-        val position = behavior.step(params.x, params.y, petWidth, petHeight, screenWidth, screenHeight)
+        val localPosition = behavior.step(
+            (params.x - leftInset).coerceAtLeast(0),
+            (params.y - topInset).coerceAtLeast(0),
+            petWidth, petHeight, usableWidth, usableHeight
+        )
+        val position = PetBehavior.Position(localPosition.x + leftInset, localPosition.y + topInset)
         var nextX = position.x
         var nextY = position.y
 
@@ -163,6 +176,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
             if (landingSurface != null) {
                 nextY = (landingSurface.top - petHeight).coerceAtLeast(0)
                 lastAppPlatformTop = landingSurface.top
+                AliveStatistics.recordLanding(context, profile.id)
                 playConfiguredSound()
                 behavior.setAppSitting()
                 appSitUntil = System.currentTimeMillis() + APP_SIT_DURATION_MS
@@ -222,6 +236,7 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
 
     private fun reactToTap() {
         if (behavior.state == PetBehavior.State.INTERACTING) return
+        AliveStatistics.recordTap(context, profile.id)
         playConfiguredSound()
         behavior.reverse()
         animationFrame = 0
