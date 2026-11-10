@@ -3,6 +3,8 @@ package com.ss.alive
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.LinearLayout
@@ -22,6 +24,14 @@ import com.ss.alive.ui.AliveUi
 
 class MainActivity : AppCompatActivity() {
     private lateinit var rootView: LinearLayout
+    private val feedbackHandler = Handler(Looper.getMainLooper())
+    private var accountConnectionMessage: String? = null
+
+    private val accountFeedbackTimeout = Runnable {
+        AccountBridge.consumeFeedback(this, pendingTimeoutReached = true)?.let {
+            showAccountFeedback(it)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,22 +43,37 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::rootView.isInitialized) {
-            AccountBridge.consumeFeedback(this)?.let { result ->
-                val message = when {
-                    result == "SUCCESS" -> "Connected to S•S Hub. Your account is up to date."
-                    result == "NO_RESPONSE" -> "S•S Hub did not respond. Please try the connection again."
-                    result == "ERROR:HUB_UNAVAILABLE" -> "Could not open S•S Hub. Make sure it is installed and try again."
-                    result == "ERROR:NOT_SIGNED_IN" -> "You are not signed in to S•S Hub. Sign in there, then refresh the connection."
-                    result == "ERROR:EMAIL_NOT_VERIFIED" -> "Your S•S Hub email is not verified yet. Verify it, then try again."
-                    result == "ERROR:PROFILE_INVALID" -> "Your S•S Hub profile could not be verified. Please sign in to Hub again."
-                    result == "ERROR:PROFILE_UNAVAILABLE" -> "Your S•S Hub profile could not be loaded. Check your connection and try again."
-                    result.startsWith("ERROR:") -> "S•S Hub could not confirm your account (${result.removePrefix("ERROR:")}). Please try again."
-                    else -> "S•S Hub connection status: $result"
-                }
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            feedbackHandler.removeCallbacks(accountFeedbackTimeout)
+            val result = AccountBridge.consumeFeedback(this)
+            if (result != null) {
+                showAccountFeedback(result)
+            } else if (AccountBridge.hasPendingFeedback(this)) {
+                // Hub sends the PendingIntent callback immediately before finishing.
+                // Give Android a moment to deliver the receiver broadcast before timing out.
+                feedbackHandler.postDelayed(accountFeedbackTimeout, 1200L)
             }
             showHome()
         }
+    }
+
+    override fun onDestroy() {
+        feedbackHandler.removeCallbacks(accountFeedbackTimeout)
+        super.onDestroy()
+    }
+
+    private fun showAccountFeedback(result: String) {
+        accountConnectionMessage = when {
+            result == "SUCCESS" -> "Connected to S•S Hub. Your account is up to date."
+            result == "NO_RESPONSE" -> "S•S Hub did not respond. Please try the connection again."
+            result == "ERROR:HUB_UNAVAILABLE" -> "Could not open S•S Hub. Make sure it is installed and try again."
+            result == "ERROR:NOT_SIGNED_IN" -> "You are not signed in to S•S Hub. Sign in there, then refresh the connection."
+            result == "ERROR:EMAIL_NOT_VERIFIED" -> "Your S•S Hub email is not verified yet. Verify it, then try again."
+            result == "ERROR:PROFILE_INVALID" -> "Your S•S Hub profile could not be verified. Please sign in to Hub again."
+            result == "ERROR:PROFILE_UNAVAILABLE" -> "Your S•S Hub profile could not be loaded. Check your connection and try again."
+            result.startsWith("ERROR:") -> "S•S Hub could not confirm your account (${result.removePrefix("ERROR:")}). Please try again."
+            else -> "S•S Hub connection status: $result"
+        }
+        showHome()
     }
 
     private fun pageHeader(content: LinearLayout, section: String, title: String, subtitle: String) {
@@ -109,6 +134,10 @@ class MainActivity : AppCompatActivity() {
             accountCard.addView(AliveUi.button(this, "Refresh connection", false) {
                 refreshAccountConnection()
             })
+        }
+        accountConnectionMessage?.let { message ->
+            accountCard.addView(AliveUi.gap(this, 10))
+            accountCard.addView(AliveUi.body(this, message, 13f))
         }
         content.addView(AliveUi.card(this, accountCard))
         content.addView(AliveUi.gap(this, 10))
@@ -307,16 +336,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshAccountConnection() {
+        feedbackHandler.removeCallbacks(accountFeedbackTimeout)
+        accountConnectionMessage = "Connecting to S•S Hub…"
+        showHome()
+
         val started = AccountBridge.requestWithFeedback(this)
-        if (started) {
-            Toast.makeText(this, "Connecting to S•S Hub…", Toast.LENGTH_SHORT).show()
-        } else {
-            AccountBridge.consumeFeedback(this)
-            Toast.makeText(
-                this,
-                "Could not open S•S Hub. Make sure it is installed and try again.",
-                Toast.LENGTH_LONG
-            ).show()
+        if (!started) {
+            val result = AccountBridge.consumeFeedback(this, pendingTimeoutReached = true)
+            accountConnectionMessage = if (result == "ERROR:HUB_UNAVAILABLE") {
+                "Could not open S•S Hub. Make sure it is installed and try again."
+            } else {
+                "Could not start the S•S Hub connection. Please try again."
+            }
+            showHome()
         }
     }
 
