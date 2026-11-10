@@ -16,7 +16,74 @@ object AccountBridge {
     const val ACTION_LIST_TEMPLATES = "LIST_TEMPLATES"
     const val ACTION_CREATE_TEMPLATE = "CREATE_TEMPLATE"
 
+    private const val FEEDBACK_PREFS = "ss_alive_account_bridge_feedback"
+    private const val KEY_PENDING = "pending"
+    private const val KEY_RESULT = "result"
+    private const val KEY_ERROR = "error"
+
     fun request(context: Context): Boolean = launch(context, null)
+
+    /**
+     * Starts an account refresh and records that the next callback should be shown to the user.
+     */
+    fun requestWithFeedback(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean(KEY_PENDING, true)
+            .remove(KEY_RESULT)
+            .remove(KEY_ERROR)
+            .apply()
+
+        val started = launch(context, null)
+        if (!started) {
+            prefs.edit()
+                .putBoolean(KEY_PENDING, false)
+                .putString(KEY_RESULT, "ERROR")
+                .putString(KEY_ERROR, "HUB_UNAVAILABLE")
+                .apply()
+        }
+        return started
+    }
+
+    /**
+     * Returns one result exactly once. If Hub returned without sending a callback,
+     * the still-pending request is reported as NO_RESPONSE.
+     */
+    fun hasPendingFeedback(context: Context): Boolean {
+        return context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PENDING, false)
+    }
+
+    /**
+     * A pending callback is not treated as a failure immediately. The caller can
+     * wait briefly after Hub finishes so Android has time to deliver the broadcast.
+     */
+    fun consumeFeedback(context: Context, pendingTimeoutReached: Boolean = false): String? {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_PENDING, false)) {
+            if (!pendingTimeoutReached) return null
+            prefs.edit().putBoolean(KEY_PENDING, false).apply()
+            return "NO_RESPONSE"
+        }
+
+        val result = prefs.getString(KEY_RESULT, null) ?: return null
+        val error = prefs.getString(KEY_ERROR, null)
+        prefs.edit().remove(KEY_RESULT).remove(KEY_ERROR).apply()
+        return if (result == "ERROR") "ERROR:${error ?: "UNKNOWN"}" else result
+    }
+
+    internal fun saveFeedbackResult(context: Context, error: String?) {
+        val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_PENDING, false)) return
+
+        prefs.edit()
+            .putBoolean(KEY_PENDING, false)
+            .putString(KEY_RESULT, if (error == null) "SUCCESS" else "ERROR")
+            .apply {
+                if (error == null) remove(KEY_ERROR) else putString(KEY_ERROR, error)
+            }
+            .apply()
+    }
 
     fun requestTemplates(context: Context): Boolean = launch(context, ACTION_LIST_TEMPLATES)
 
@@ -35,7 +102,9 @@ object AccountBridge {
 
     private fun launch(context: Context, intent: Intent): Boolean {
         val callbackIntent = Intent(context, AccountBridgeReceiver::class.java)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // Hub returns the account/template payload through this explicit callback.
+        // Mutable is required so PendingIntent.send(..., fillInIntent) can attach result extras.
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         val callback = PendingIntent.getBroadcast(context, REQUEST_CODE, callbackIntent, flags)
         intent.putExtra("com.ss.hub.account_bridge.CALLBACK", callback)
         return try {

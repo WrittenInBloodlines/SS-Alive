@@ -9,6 +9,9 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         val templateJson = intent.getStringExtra(EXTRA_TEMPLATE_JSON)
         val templateError = intent.getStringExtra(EXTRA_TEMPLATE_ERROR)
         if (templateJson != null || templateError != null) {
+            if (templateError == "NOT_SIGNED_IN" || templateError == "EMAIL_NOT_VERIFIED") {
+                AliveAccountStore.clear(context)
+            }
             context.getSharedPreferences(TEMPLATE_RESULT_PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(TEMPLATE_RESULT_JSON, templateJson)
@@ -26,7 +29,8 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         val error = intent.getStringExtra(EXTRA_ERROR)
         val uid = intent.getStringExtra(EXTRA_UID)
         if (error != null || uid.isNullOrBlank()) {
-            if (error == "NOT_SIGNED_IN") AliveAccountStore.clear(context)
+            AliveAccountStore.clear(context)
+            AccountBridge.saveFeedbackResult(context, error ?: "INVALID_RESPONSE")
             return
         }
 
@@ -39,6 +43,7 @@ class AccountBridgeReceiver : BroadcastReceiver() {
                 role = intent.getStringExtra(EXTRA_ROLE) ?: "user"
             )
         )
+        AccountBridge.saveFeedbackResult(context, null)
     }
 
     companion object {

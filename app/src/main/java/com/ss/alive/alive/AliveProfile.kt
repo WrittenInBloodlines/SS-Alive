@@ -10,6 +10,20 @@ data class AliveProfile(
     var templateKind: String = "CUSTOM",
     var sizePercent: Int = 55,
     var interactionEnabled: Boolean = false,
+    var headTapReaction: String = "TURN",
+    var bodyTapReaction: String = "JUMP",
+    var ghostMode: Boolean = false,
+    var energyLevel: Int = 50,
+    var movementSpeedPercent: Int = 100,
+    var sleepFrequency: Int = 35,
+    var curiosity: Int = 50,
+    var gravityStrengthPercent: Int = 100,
+    var interactionFrequency: Int = 50,
+    var soundsEnabled: Boolean = false,
+    var soundVolume: Int = 50,
+    var soundUri: String? = null,
+    var heldItem: String? = null,
+    var mood: String = "NEUTRAL",
     val frames: MutableMap<String, MutableList<String>> = mutableMapOf(),
     val speedsFps: MutableMap<String, Int> = mutableMapOf()
 ) {
@@ -24,7 +38,8 @@ data class AliveProfile(
         const val HELD = "HELD"
         const val CLIMB = "CLIMB"
         const val INTERACTION = "INTERACTION"
-        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB, INTERACTION)
+        const val APP_SIT = "APP_SIT"
+        val STATES = listOf(IDLE, WALK, RUN, SIT, JUMP, FALL, LANDING, HELD, CLIMB, INTERACTION, APP_SIT)
         const val DEFAULT_FPS = 10
 
         fun empty(id: String, name: String): AliveProfile = AliveProfile(id, name)
@@ -37,7 +52,21 @@ data class AliveProfile(
                 isTemplate = root.optBoolean("template", false),
                 templateKind = root.optString("templateKind", "CUSTOM"),
                 sizePercent = root.optInt("sizePercent", 55).coerceIn(25, 200),
-                interactionEnabled = root.optBoolean("interactionEnabled", false)
+                interactionEnabled = root.optBoolean("interactionEnabled", false),
+                headTapReaction = root.optString("headTapReaction", "TURN").uppercase().takeIf { it in setOf("TURN", "JUMP", "SIT") } ?: "TURN",
+                bodyTapReaction = root.optString("bodyTapReaction", "JUMP").uppercase().takeIf { it in setOf("TURN", "JUMP", "SIT") } ?: "JUMP",
+                ghostMode = root.optBoolean("ghostMode", false),
+                energyLevel = root.optInt("energyLevel", 50).coerceIn(0, 100),
+                movementSpeedPercent = root.optInt("movementSpeedPercent", 100).coerceIn(50, 150),
+                sleepFrequency = root.optInt("sleepFrequency", 35).coerceIn(0, 100),
+                curiosity = root.optInt("curiosity", 50).coerceIn(0, 100),
+                gravityStrengthPercent = root.optInt("gravityStrengthPercent", 100).coerceIn(50, 150),
+                interactionFrequency = root.optInt("interactionFrequency", 50).coerceIn(0, 100),
+                soundsEnabled = root.optBoolean("soundsEnabled", false),
+                soundVolume = root.optInt("soundVolume", 50).coerceIn(0, 100),
+                soundUri = root.optString("soundUri", "").takeIf { it.isNotBlank() },
+                heldItem = root.optString("heldItem", "").takeIf { it in listOf("📖", "🌹", "🔑", "☕", "⭐", "🎁") },
+                mood = root.optString("mood", "NEUTRAL").uppercase().takeIf { it in setOf("NEUTRAL", "CHEERFUL", "SLEEPY", "CURIOUS", "CALM", "ENERGETIC") } ?: "NEUTRAL"
             )
             val frameObject = root.optJSONObject("frames")
             STATES.forEach { state ->
@@ -68,6 +97,20 @@ data class AliveProfile(
             put("templateKind", "CUSTOM")
             put("sizePercent", sizePercent.coerceIn(25, 200))
             put("interactionEnabled", interactionEnabled)
+            put("headTapReaction", headTapReaction)
+            put("bodyTapReaction", bodyTapReaction)
+            put("ghostMode", ghostMode)
+            put("energyLevel", energyLevel.coerceIn(0, 100))
+            put("movementSpeedPercent", movementSpeedPercent.coerceIn(50, 150))
+            put("sleepFrequency", sleepFrequency.coerceIn(0, 100))
+            put("curiosity", curiosity.coerceIn(0, 100))
+            put("gravityStrengthPercent", gravityStrengthPercent.coerceIn(50, 150))
+            put("interactionFrequency", interactionFrequency.coerceIn(0, 100))
+            put("soundsEnabled", soundsEnabled)
+            put("soundVolume", soundVolume.coerceIn(0, 100))
+            put("soundUri", soundUri ?: "")
+            put("heldItem", heldItem ?: "")
+            put("mood", mood)
         }
         val frameObject = JSONObject()
         frames.forEach { (state, uris) ->

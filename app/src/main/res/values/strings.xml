@@ -1,0 +1,3 @@
+<resources>
+    <string name="ss_alive_accessibility_description">Find visible app interface positions so Alives can sit on screen surfaces. S•S Alive uses visible bounds only and does not read or store text or personal content.</string>
+</resources>
