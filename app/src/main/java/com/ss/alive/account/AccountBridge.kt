@@ -49,9 +49,19 @@ object AccountBridge {
      * Returns one result exactly once. If Hub returned without sending a callback,
      * the still-pending request is reported as NO_RESPONSE.
      */
-    fun consumeFeedback(context: Context): String? {
+    fun hasPendingFeedback(context: Context): Boolean {
+        return context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PENDING, false)
+    }
+
+    /**
+     * A pending callback is not treated as a failure immediately. The caller can
+     * wait briefly after Hub finishes so Android has time to deliver the broadcast.
+     */
+    fun consumeFeedback(context: Context, pendingTimeoutReached: Boolean = false): String? {
         val prefs = context.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_PENDING, false)) {
+            if (!pendingTimeoutReached) return null
             prefs.edit().putBoolean(KEY_PENDING, false).apply()
             return "NO_RESPONSE"
         }
