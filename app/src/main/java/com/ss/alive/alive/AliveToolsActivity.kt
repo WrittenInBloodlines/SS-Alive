@@ -323,7 +323,7 @@ class AliveToolsActivity : AppCompatActivity() {
             profiles.forEach { profile ->
                 val stats = AliveStatistics.read(this, profile.id)
                 card.addView(AliveUi.heading(this, profile.name, 16f))
-                card.addView(AliveUi.body(this, "Taps: ${stats.first}   •   Landings: ${stats.second}   •   Active: ${stats.third / 60000L} min", 12f))
+                card.addView(AliveUi.body(this, "Taps: ${stats.first}   •   Active: ${stats.third / 60000L} min", 12f))
                 card.addView(AliveUi.button(this, "Reset ${profile.name} statistics", false) {
                     AliveStatistics.reset(this, profile.id)
                     Toast.makeText(this, "Statistics reset. Reopen Alive Studio to refresh.", Toast.LENGTH_SHORT).show()
