@@ -282,7 +282,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
                     interactionUntil = 0L
                     interactionAnimationUntil = 0L
                     behavior.setHeld()
-                    lastAppPlatformTop = null
                     animationFrame = 0
                     invalidate()
                 }
