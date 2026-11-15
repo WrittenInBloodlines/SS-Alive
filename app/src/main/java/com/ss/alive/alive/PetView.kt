@@ -3,7 +3,6 @@ package com.ss.alive.alive
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Rect
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Handler
@@ -58,7 +57,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
     private var interactionUntil = 0L
     private var interactionAnimationUntil = 0L
     private var appSitUntil = 0L
-    private var lastAppPlatformTop: Int? = null
 
     val profileId: String get() = profile.id
     val isBeingDragged: Boolean get() = dragging
@@ -171,7 +169,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val bottomInset = (screenHeight * zonePrefs.getInt("bottom", 0).coerceIn(0, 35) / 100f).toInt()
         val usableWidth = (screenWidth - leftInset - rightInset).coerceAtLeast(petWidth)
         val usableHeight = (screenHeight - topInset - bottomInset).coerceAtLeast(petHeight)
-        val previousY = params.y
         val previousState = behavior.state
         val localPosition = behavior.step(
             (params.x - leftInset).coerceAtLeast(0),
@@ -181,40 +178,6 @@ class PetView(context: Context, private val profile: AliveProfile) : View(contex
         val position = PetBehavior.Position(localPosition.x + leftInset, localPosition.y + topInset)
         var nextX = position.x
         var nextY = position.y
-
-        if (previousState == PetBehavior.State.FALLING && nextY > previousY) {
-            val newBottom = nextY + petHeight
-            val landingSurface = AlivePlatformRegistry.snapshot()
-                .asSequence()
-                .filter { rect ->
-                    rect.top > 0 &&
-                        rect.top != lastAppPlatformTop &&
-                        rect.left < params.x + petWidth &&
-                        rect.right > params.x &&
-                        // A surface is valid only if the pet's bottom crosses its
-                        // top edge while falling. This prevents snapping upward
-                        // onto a control that is already beside/inside the pet.
-                        rect.top >= previousY + petHeight - 8 &&
-                        rect.top <= newBottom
-                }
-                .minByOrNull { it.top }
-
-            if (landingSurface != null) {
-                nextY = (landingSurface.top - petHeight).coerceAtLeast(0)
-                lastAppPlatformTop = landingSurface.top
-                AliveStatistics.recordLanding(context, profile.id)
-                playConfiguredSound()
-                behavior.setAppSitting()
-                appSitUntil = System.currentTimeMillis() + APP_SIT_DURATION_MS
-                animationFrame = 0
-            }
-        }
-        val previousPlatformTop = lastAppPlatformTop
-        if (previousState == PetBehavior.State.FALLING && previousPlatformTop != null &&
-            previousY > previousPlatformTop
-        ) {
-            lastAppPlatformTop = null
-        }
 
         if (nextX != params.x || nextY != params.y) {
             params.x = nextX
