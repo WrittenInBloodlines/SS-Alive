@@ -87,16 +87,6 @@ class AliveToolsActivity : AppCompatActivity() {
                 prefs.edit().putBoolean("pause_screen_off", checked).apply()
             }
         })
-        card.addView(CheckBox(this).apply {
-            text = "Pause Alives while using other apps"
-            setTextColor(AliveUi.text)
-            buttonTintList = android.content.res.ColorStateList.valueOf(AliveUi.blue)
-            isChecked = prefs.getBoolean("pause_other_apps", false)
-            setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean("pause_other_apps", checked).apply()
-            }
-        })
-        card.addView(AliveUi.body(this, "Pausing in other apps requires the optional S•S Alive accessibility service. It uses only the foreground app package name and does not read screen text or personal content.", 11f))
         card.addView(AliveUi.body(this, "Changes apply the next time equipped Alives are started. Keep the values modest so characters still have room to move.", 11f))
         root.addView(AliveUi.card(this, card))
     }
@@ -324,7 +314,7 @@ class AliveToolsActivity : AppCompatActivity() {
     private fun addStatistics(root: LinearLayout) {
         val card = AliveUi.column(this)
         card.addView(AliveUi.heading(this, "Activity statistics", 19f))
-        card.addView(AliveUi.body(this, "See how often each Alive has been tapped or landed on a home-screen surface."))
+        card.addView(AliveUi.body(this, "See how often each Alive has been tapped and how long it has been active."))
         card.addView(AliveUi.gap(this, 8))
         val profiles = AliveRepository.all(this).filter { !it.isTemplate }
         if (profiles.isEmpty()) {
