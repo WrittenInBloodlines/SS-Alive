@@ -49,8 +49,8 @@ class MainActivity : AppCompatActivity() {
                 showAccountFeedback(result)
             } else if (AccountBridge.hasPendingFeedback(this)) {
                 // Hub sends the PendingIntent callback immediately before finishing.
-                // Give Android a moment to deliver the receiver broadcast before timing out.
-                feedbackHandler.postDelayed(accountFeedbackTimeout, 1200L)
+                // Allow Firebase auth refresh and the Firestore profile lookup to finish before timing out.
+                feedbackHandler.postDelayed(accountFeedbackTimeout, 20_000L)
             }
             showHome()
         }
