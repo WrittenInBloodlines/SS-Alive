@@ -30,7 +30,11 @@ class AccountBridgeReceiver : BroadcastReceiver() {
         val uid = intent.getStringExtra(EXTRA_UID)
         if (error != null || uid.isNullOrBlank()) {
             AliveAccountStore.clear(context)
-            AccountBridge.saveFeedbackResult(context, error ?: "INVALID_RESPONSE")
+            AccountBridge.saveFeedbackResult(
+                context,
+                error ?: "INVALID_RESPONSE",
+                intent.getStringExtra(AccountBridge.EXTRA_FEEDBACK_REQUEST_ID)
+            )
             return
         }
 
@@ -43,7 +47,11 @@ class AccountBridgeReceiver : BroadcastReceiver() {
                 role = intent.getStringExtra(EXTRA_ROLE) ?: "user"
             )
         )
-        AccountBridge.saveFeedbackResult(context, null)
+        AccountBridge.saveFeedbackResult(
+            context,
+            null,
+            intent.getStringExtra(AccountBridge.EXTRA_FEEDBACK_REQUEST_ID)
+        )
     }
 
     companion object {
