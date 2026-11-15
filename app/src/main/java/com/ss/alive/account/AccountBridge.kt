@@ -25,7 +25,7 @@ object AccountBridge {
 
     const val EXTRA_FEEDBACK_REQUEST_ID = "com.ss.alive.account_bridge.FEEDBACK_REQUEST_ID"
 
-    fun request(context: Context): Boolean = launch(context, null)
+    fun request(context: Context): Boolean = launch(context, null as String?)
 
     /**
      * Starts an account refresh and records that the next callback should be shown to the user.
@@ -40,7 +40,7 @@ object AccountBridge {
             .remove(KEY_ERROR)
             .apply()
 
-        val started = launch(context, null, requestId)
+        val started = launch(context, null as String?, requestId)
         if (!started) {
             prefs.edit()
                 .putBoolean(KEY_PENDING, false)
