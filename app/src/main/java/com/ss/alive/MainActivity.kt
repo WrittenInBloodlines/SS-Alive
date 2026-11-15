@@ -258,16 +258,6 @@ class MainActivity : AppCompatActivity() {
         })
         content.addView(AliveUi.card(this, overlay))
 
-        val accessibility = AliveUi.column(this)
-        accessibility.addView(AliveUi.heading(this, "Home-screen detection", 17f))
-        accessibility.addView(AliveUi.gap(this, 5))
-        accessibility.addView(AliveUi.body(this,
-            "Optional. Lets Alives detect visible home-screen icon areas so they can land on them. It does not read screen text or personal content."))
-        accessibility.addView(AliveUi.gap(this, 12))
-        accessibility.addView(AliveUi.button(this, "Open accessibility settings", false) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        })
-        content.addView(AliveUi.card(this, accessibility))
         addBack(content)
         setContentView(scroll)
     }
