@@ -1,12 +1,16 @@
 package com.ss.alive.alive
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
+import android.view.View
+import android.media.MediaPlayer
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -19,6 +23,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.ss.alive.ui.AliveUi
 
 class AliveEditorActivity : AppCompatActivity() {
     private lateinit var profile: AliveProfile
@@ -30,6 +36,28 @@ class AliveEditorActivity : AppCompatActivity() {
     private lateinit var sizeLabel: TextView
     private lateinit var preview: AnimatedFramePreview
     private lateinit var previewStateLabel: TextView
+    private lateinit var soundStatus: TextView
+    private val exportPackage = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        if (uri != null) runCatching { AlivePackageManager.export(this, profile, uri) }
+            .onSuccess { Toast.makeText(this, "Alive package exported.", Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(this, "Export failed: " + (it.message ?: "unknown error"), Toast.LENGTH_LONG).show() }
+    }
+    private val importPackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) runCatching { AlivePackageManager.import(this, uri) }
+            .onSuccess { imported ->
+                AliveRepository.save(this, imported)
+                Toast.makeText(this, imported.name + " imported.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+            .onFailure { Toast.makeText(this, "Import failed: " + (it.message ?: "invalid package"), Toast.LENGTH_LONG).show() }
+    }
+    private val pickSound = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            profile.soundUri = uri.toString()
+            if (::soundStatus.isInitialized) soundStatus.text = "Sound selected"
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,44 +73,39 @@ class AliveEditorActivity : AppCompatActivity() {
     }
 
     private fun buildEditor() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 48, 40, 48)
-        }
-        root.addView(TextView(this).apply {
-            text = "CREATE ALIVE"
-            textSize = 30f
-        })
-        root.addView(TextView(this).apply {
-            text = "Make the character yourself: add your own PNG frames, choose how fast every animation plays, and preview it before saving."
-            textSize = 16f
-            setPadding(0, 12, 0, 16)
-        })
+        if (::preview.isInitialized) preview.stop()
+        val (scroll, root) = AliveUi.scrollPage(this)
+        val isEditing = intent.getStringExtra(EXTRA_ID) != null
 
+        root.addView(AliveUi.label(this, "S•S ALIVE  /  CHARACTER STUDIO"))
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.heading(this, if (isEditing) "Edit your Alive" else "Create an Alive", 28f))
+        root.addView(AliveUi.body(this,
+            "Build your character, choose its size, and add the animations it can use on your screen."))
+        root.addView(AliveUi.gap(this, 20))
+
+        val character = AliveUi.column(this)
+        character.addView(AliveUi.heading(this, "Character", 19f))
+        character.addView(AliveUi.body(this, "Give your Alive a name and choose how large it appears."))
+        character.addView(AliveUi.gap(this, 12))
         nameInput = EditText(this).apply {
-            hint = "Alive name"
+            hint = "Enter a character name"
             setSingleLine(true)
             setText(profile.name)
+            setTextColor(AliveUi.text)
+            setHintTextColor(AliveUi.muted)
+            backgroundTintList = ColorStateList.valueOf(AliveUi.blue)
+            textSize = 16f
         }
-        root.addView(nameInput, LinearLayout.LayoutParams(-1, -2))
-
-        root.addView(CheckBox(this).apply {
-            text = "Enable interactions with other Alives"
-            isChecked = profile.interactionEnabled
-            setPadding(0, 16, 0, 8)
-            setOnCheckedChangeListener { _, checked -> profile.interactionEnabled = checked }
-        })
-        root.addView(TextView(this).apply {
-            text = "Optional: both Alives need this enabled and an Interaction animation to interact when they meet."
-            textSize = 13f
-            setPadding(0, 0, 0, 12)
-        })
-
-        sizeLabel = TextView(this).apply { textSize = 17f; setPadding(0, 18, 0, 4) }
-        root.addView(sizeLabel)
+        character.addView(nameInput, LinearLayout.LayoutParams(-1, -2))
+        character.addView(AliveUi.gap(this, 14))
+        sizeLabel = AliveUi.body(this, "", 14f)
+        character.addView(sizeLabel)
         val sizeBar = SeekBar(this).apply {
             max = 175
             progress = profile.sizePercent.coerceIn(25, 200) - 25
+            progressTintList = ColorStateList.valueOf(AliveUi.blue)
+            thumbTintList = ColorStateList.valueOf(AliveUi.blue)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                     profile.sizePercent = p + 25
@@ -92,117 +115,334 @@ class AliveEditorActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(s: SeekBar?) = Unit
             })
         }
-        root.addView(sizeBar)
+        character.addView(sizeBar)
         updateSizeLabel()
+        root.addView(AliveUi.card(this, character))
 
-        previewStateLabel = TextView(this).apply {
-            text = "PREVIEW • IDLE"
-            textSize = 18f
-            setPadding(0, 22, 0, 8)
+        val previewCard = AliveUi.column(this)
+        previewCard.addView(AliveUi.heading(this, "Animation preview", 19f))
+        previewStateLabel = AliveUi.body(this, "Choose an animation below to preview it.", 13f)
+        previewCard.addView(previewStateLabel)
+        previewCard.addView(AliveUi.gap(this, 8))
+        preview = AnimatedFramePreview(this).apply {
+            setBackgroundColor(AliveUi.surfaceRaised)
+            setPadding(AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12), AliveUi.dp(this@AliveEditorActivity, 12))
         }
-        root.addView(previewStateLabel)
+        previewCard.addView(preview, LinearLayout.LayoutParams(-1, AliveUi.dp(this, 220)))
+        root.addView(AliveUi.card(this, previewCard))
 
-        preview = AnimatedFramePreview(this)
-        root.addView(preview, LinearLayout.LayoutParams(-1, 300))
+        root.addView(AliveUi.heading(this, "Animations", 22f))
+        root.addView(AliveUi.body(this,
+            "Add PNG frames for each movement. You can preview each animation before saving."))
+        root.addView(AliveUi.gap(this, 12))
 
-        val scroll = ScrollView(this)
-        val states = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(states)
         AliveProfile.STATES.forEach { state ->
-            val section = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, 20, 0, 8)
+            val section = AliveUi.column(this)
+            val title = when (state) {
+                AliveProfile.INTERACTION -> "Interaction"
+                AliveProfile.APP_SIT -> "Home-screen landing"
+                else -> state.titleCase()
             }
-            section.addView(TextView(this).apply {
-                text = if (state == AliveProfile.INTERACTION) "Interaction (Optional)" else state.titleCase()
-                textSize = 20f
-            })
-            if (state == AliveProfile.INTERACTION) {
-                section.addView(TextView(this).apply {
-                    text = "Add the frames this Alive should play when it meets another Alive."
-                    textSize = 13f
-                    setPadding(0, 4, 0, 8)
-                })
+            section.addView(AliveUi.heading(this, title, 17f))
+            val description = when (state) {
+                AliveProfile.INTERACTION -> "Played when this Alive interacts with another."
+                AliveProfile.APP_SIT -> "Played when this Alive lands on an app icon on the home screen."
+                else -> "Frames used for the ${state.titleCase().lowercase()} animation."
             }
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
+            section.addView(AliveUi.body(this, description, 12f))
+            section.addView(AliveUi.gap(this, 8))
+            val row = AliveUi.column(this)
             stateRows[state] = row
             section.addView(row)
-            states.addView(section)
+            root.addView(AliveUi.card(this, section))
             refreshState(state)
         }
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        root.addView(Button(this).apply {
-            text = "SAVE"
-            setOnClickListener { saveProfile() }
+        val optionalSettings = AliveUi.column(this)
+        optionalSettings.addView(AliveUi.heading(this, "Optional settings", 19f))
+        optionalSettings.addView(AliveUi.body(this, "Advanced options stay hidden until you open a section.", 12f))
+        optionalSettings.addView(AliveUi.gap(this, 10))
+
+        val behavior = AliveUi.column(this)
+        behavior.addView(CheckBox(this).apply {
+            text = "Allow interactions with other Alives"
+            setTextColor(AliveUi.text)
+            buttonTintList = ColorStateList.valueOf(AliveUi.blue)
+            isChecked = profile.interactionEnabled
+            setPadding(0, AliveUi.dp(this@AliveEditorActivity, 8), 0, 4)
+            setOnCheckedChangeListener { _, checked -> profile.interactionEnabled = checked }
         })
-        root.addView(Button(this).apply {
-            text = "USE ALIVE"
-            setOnClickListener { saveProfile(true) }
+        behavior.addView(AliveUi.body(this, "Both characters need this enabled and an Interaction animation.", 12f))
+        behavior.addView(CheckBox(this).apply {
+            text = "Enable Ghost Mode"
+            setTextColor(AliveUi.text)
+            buttonTintList = ColorStateList.valueOf(AliveUi.blue)
+            isChecked = profile.ghostMode
+            setPadding(0, AliveUi.dp(this@AliveEditorActivity, 8), 0, 4)
+            setOnCheckedChangeListener { _, checked -> profile.ghostMode = checked }
         })
-        if (!profile.isTemplate) root.addView(Button(this).apply {
-            text = "DELETE ALIVE"
-            setOnClickListener { confirmDelete() }
+        behavior.addView(AliveUi.body(this, "Makes this Alive partly transparent and lets taps pass through it.", 12f))
+        optionalSettings.addView(collapsibleSection("Behavior & Ghost Mode", behavior))
+
+        val touchReactions = AliveUi.column(this)
+        touchReactions.addView(AliveUi.body(this, "Choose what happens when the head or body is tapped.", 12f))
+        touchReactions.addView(AliveUi.gap(this, 6))
+        touchReactions.addView(reactionButton("Head reaction", profile.headTapReaction) { profile.headTapReaction = it })
+        touchReactions.addView(reactionButton("Body reaction", profile.bodyTapReaction) { profile.bodyTapReaction = it })
+        optionalSettings.addView(collapsibleSection("Touch reactions", touchReactions))
+
+        val props = AliveUi.column(this)
+        props.addView(AliveUi.body(this, "Choose a small prop that appears beside your Alive while it moves.", 12f))
+        props.addView(AliveUi.gap(this, 6))
+        props.addView(AliveUi.button(this, "Choose carried item", false) {
+            val items = arrayOf("📖 Book", "🌹 Flower", "🔑 Key", "☕ Coffee", "⭐ Star", "🎁 Gift", "No item")
+            val values = arrayOf("📖", "🌹", "🔑", "☕", "⭐", "🎁", "")
+            AlertDialog.Builder(this)
+                .setTitle("Carried item")
+                .setItems(items) { _, index ->
+                    profile.heldItem = values[index].takeIf { it.isNotBlank() }
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         })
-        setContentView(root)
+        props.addView(AliveUi.body(this, "Current item: ${profile.heldItem ?: "None"}", 12f))
+        optionalSettings.addView(collapsibleSection("Props & Items", props))
+
+        val personality = AliveUi.column(this)
+        personality.addView(AliveUi.body(this, "These values affect movement, resting and interaction timing.", 12f))
+        personality.addView(AliveUi.button(this, "Mood  •  ${profile.mood.lowercase().replaceFirstChar { it.uppercase() }}", false) {
+            val moods = arrayOf("Neutral", "Cheerful", "Sleepy", "Curious", "Calm", "Energetic")
+            val values = arrayOf("NEUTRAL", "CHEERFUL", "SLEEPY", "CURIOUS", "CALM", "ENERGETIC")
+            AlertDialog.Builder(this)
+                .setTitle("Choose a mood")
+                .setItems(moods) { _, index ->
+                    profile.mood = values[index]
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
+        addSettingSlider(personality, "Energy", "Higher energy means more active movement.", profile.energyLevel, 0, 100) { profile.energyLevel = it }
+        addSettingSlider(personality, "Movement speed", "Controls walking speed.", profile.movementSpeedPercent, 50, 150, "%") { profile.movementSpeedPercent = it }
+        addSettingSlider(personality, "Sleep frequency", "Controls how often and how long this Alive rests.", profile.sleepFrequency, 0, 100) { profile.sleepFrequency = it }
+        addSettingSlider(personality, "Curiosity", "Higher curiosity makes direction changes more likely.", profile.curiosity, 0, 100) { profile.curiosity = it }
+        addSettingSlider(personality, "Gravity", "Lower gravity makes falling and jumping feel floatier.", profile.gravityStrengthPercent, 50, 150, "%") { profile.gravityStrengthPercent = it }
+        addSettingSlider(personality, "Interaction frequency", "Controls the cooldown before another interaction.", profile.interactionFrequency, 0, 100) { profile.interactionFrequency = it }
+        optionalSettings.addView(collapsibleSection("Personality", personality))
+
+        val sounds = AliveUi.column(this)
+        sounds.addView(CheckBox(this).apply {
+            text = "Enable sound effects"
+            setTextColor(AliveUi.text)
+            buttonTintList = ColorStateList.valueOf(AliveUi.blue)
+            isChecked = profile.soundsEnabled
+            setOnCheckedChangeListener { _, checked -> profile.soundsEnabled = checked }
+        })
+        soundStatus = AliveUi.body(this, if (profile.soundUri.isNullOrBlank()) "No sound selected" else "Sound selected", 12f)
+        sounds.addView(soundStatus)
+        sounds.addView(AliveUi.button(this, "Choose sound file", false) { pickSound.launch(arrayOf("audio/*")) })
+        addSettingSlider(sounds, "Sound volume", "Volume for tap and landing effects.", profile.soundVolume, 0, 100, "%") { profile.soundVolume = it }
+        sounds.addView(AliveUi.button(this, "Preview sound", false) {
+            val uri = profile.soundUri
+            if (uri.isNullOrBlank()) {
+                Toast.makeText(this, "Choose a sound file first.", Toast.LENGTH_SHORT).show()
+            } else {
+                runCatching {
+                    MediaPlayer.create(this, Uri.parse(uri))?.also { player ->
+                        val volume = profile.soundVolume / 100f
+                        player.setVolume(volume, volume)
+                        player.setOnCompletionListener { it.release() }
+                        player.start()
+                    }
+                }.onFailure { Toast.makeText(this, "Could not play this sound.", Toast.LENGTH_SHORT).show() }
+            }
+        })
+        optionalSettings.addView(collapsibleSection("Sounds", sounds))
+
+        val sharing = AliveUi.column(this)
+        sharing.addView(AliveUi.body(this, "Packages include profile settings, animation PNGs and the selected sound.", 12f))
+        sharing.addView(AliveUi.gap(this, 8))
+        AliveUi.addButtonRow(this, sharing, listOf(
+            AliveUi.button(this, "Export package", true) {
+                profile.name = nameInput.text.toString().trim().ifEmpty { "Alive 1" }
+                val safeName = profile.name.replace(Regex("[^A-Za-z0-9_-]"), "_")
+                exportPackage.launch(safeName + ".ssalive")
+            },
+            AliveUi.button(this, "Import package", false) {
+                importPackage.launch(arrayOf("application/zip", "application/octet-stream"))
+            }
+        ))
+        optionalSettings.addView(collapsibleSection("Import & Export", sharing))
+        root.addView(AliveUi.card(this, optionalSettings))
+
+        root.addView(AliveUi.gap(this, 4))
+        AliveUi.addButtonRow(this, root, listOf(
+            AliveUi.button(this, "Save", true) { saveProfile() },
+            AliveUi.button(this, "Save & use", false) { saveProfile(true) }
+        ))
+        if (!profile.isTemplate) {
+            root.addView(AliveUi.gap(this, 8))
+            root.addView(AliveUi.button(this, "Delete this Alive", false) { confirmDelete() })
+        }
+        root.addView(AliveUi.gap(this, 20))
+        setContentView(scroll)
+    }
+
+    private fun collapsibleSection(title: String, section: LinearLayout): LinearLayout {
+        val wrapper = AliveUi.column(this)
+        section.visibility = View.GONE
+        val header = AliveUi.button(this, title + "  +", false) { }
+        header.setOnClickListener {
+            val expanded = section.visibility != View.VISIBLE
+            section.visibility = if (expanded) View.VISIBLE else View.GONE
+            header.text = title + if (expanded) "  −" else "  +"
+        }
+        wrapper.addView(header)
+        wrapper.addView(section)
+        wrapper.addView(AliveUi.gap(this, 7))
+        return wrapper
+    }
+
+    private fun addSettingSlider(
+        parent: LinearLayout,
+        title: String,
+        description: String,
+        initial: Int,
+        minimum: Int,
+        maximum: Int,
+        suffix: String = "",
+        onChanged: (Int) -> Unit
+    ) {
+        val valueLabel = AliveUi.body(this, title + "  •  " + initial + suffix, 14f)
+        parent.addView(valueLabel)
+        parent.addView(AliveUi.body(this, description, 11f))
+        val slider = SeekBar(this).apply {
+            max = maximum - minimum
+            progress = (initial - minimum).coerceIn(0, max)
+            progressTintList = ColorStateList.valueOf(AliveUi.blue)
+            thumbTintList = ColorStateList.valueOf(AliveUi.blue)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = progress + minimum
+                    valueLabel.text = title + "  •  " + value + suffix
+                    onChanged(value)
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+            })
+        }
+        parent.addView(slider)
+        parent.addView(AliveUi.gap(this, 8))
     }
 
     private fun updateSizeLabel() {
-        sizeLabel.text = "Size: ${profile.sizePercent}%"
+        sizeLabel.text = "Character size  •  ${profile.sizePercent}%"
     }
 
     private fun refreshState(state: String) {
-        val row = stateRows[state] ?: return
-        row.removeAllViews()
+        val container = stateRows[state] ?: return
+        container.removeAllViews()
         val frames = profile.frameUris(state)
-        val info = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        info.addView(TextView(this).apply {
-            text = if (frames.isEmpty()) "No PNG selected" else "${frames.size} frame${if (frames.size == 1) "" else "s"}"
-            textSize = 15f
-        })
-        val speedLabel = TextView(this).apply {
-            text = "Speed: ${profile.speedFps(state)} FPS"
-            textSize = 13f
-        }
-        info.addView(speedLabel)
+        val info = AliveUi.row(this)
+        val frameInfo = AliveUi.column(this)
+        frameInfo.addView(AliveUi.heading(this,
+            if (frames.isEmpty()) "No frames yet" else "${frames.size} frame${if (frames.size == 1) "" else "s"}", 15f))
+        val speedLabel = AliveUi.body(this, "Playback speed  •  ${profile.speedFps(state)} FPS", 12f)
+        frameInfo.addView(speedLabel)
+        info.addView(frameInfo, LinearLayout.LayoutParams(0, -2, 1f))
+        container.addView(info)
+
         val speedBar = SeekBar(this).apply {
             max = 29
             progress = profile.speedFps(state) - 1
+            progressTintList = ColorStateList.valueOf(AliveUi.blue)
+            thumbTintList = ColorStateList.valueOf(AliveUi.blue)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                     profile.setSpeedFps(state, p + 1)
-                    speedLabel.text = "Speed: ${profile.speedFps(state)} FPS"
+                    speedLabel.text = "Playback speed  •  ${profile.speedFps(state)} FPS"
                     if (preview.currentState == state) preview.restart(profile.frameUris(state), profile.speedFps(state), state)
                 }
                 override fun onStartTrackingTouch(s: SeekBar?) = Unit
                 override fun onStopTrackingTouch(s: SeekBar?) = Unit
             })
         }
-        info.addView(speedBar)
-        row.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(Button(this).apply {
-            text = "+"
-            setOnClickListener {
+        container.addView(speedBar)
+        container.addView(AliveUi.gap(this, 6))
+        val actions = mutableListOf(
+            AliveUi.button(this, "Add PNG frames", true) {
                 pendingState = state
                 showImageSourceDialog()
+            },
+            AliveUi.button(this, "Preview", false) { startPreview(state) }
+        )
+        actions[1].isEnabled = frames.isNotEmpty()
+        AliveUi.addButtonRow(this, container, actions)
+        if (frames.isNotEmpty()) {
+            container.addView(AliveUi.gap(this, 6))
+            container.addView(AliveUi.button(this, "Manage frame order", false) { manageFrames(state) })
+            container.addView(AliveUi.gap(this, 6))
+            container.addView(AliveUi.button(this, "Remove all frames", false) {
+                AlertDialog.Builder(this)
+                    .setTitle("Remove animation frames?")
+                    .setMessage("This clears all frames for this animation.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove") { _, _ ->
+                        profile.frames[state]?.clear()
+                        refreshState(state)
+                        if (preview.currentState == state) preview.stop()
+                    }
+                    .show()
+            })
+        }
+    }
+
+    private fun reactionButton(title: String, current: String, onSelected: (String) -> Unit): Button =
+        AliveUi.button(this, "$title  •  $current", false) {
+            val choices = arrayOf("Turn around", "Jump", "Sit briefly")
+            val values = arrayOf("TURN", "JUMP", "SIT")
+            AlertDialog.Builder(this)
+                .setTitle(title)
+                .setItems(choices) { _, index ->
+                    onSelected(values[index])
+                    // Rebuild the editor so the selected value is visible.
+                    buildEditor()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+    private fun manageFrames(state: String) {
+        val frames = profile.frames.getOrPut(state) { mutableListOf() }
+        if (frames.isEmpty()) return
+        val labels = frames.indices.map { "Frame ${it + 1}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Manage ${state.titleCase()} frames")
+            .setItems(labels) { _, selected ->
+                val actions = arrayOf("Move earlier", "Move later", "Remove frame")
+                AlertDialog.Builder(this)
+                    .setTitle(labels[selected])
+                    .setItems(actions) { _, action ->
+                        when (action) {
+                            0 -> if (selected > 0) {
+                                val item = frames.removeAt(selected)
+                                frames.add(selected - 1, item)
+                            }
+                            1 -> if (selected < frames.lastIndex) {
+                                val item = frames.removeAt(selected)
+                                frames.add(selected + 1, item)
+                            }
+                            2 -> frames.removeAt(selected)
+                        }
+                        refreshState(state)
+                        if (preview.currentState == state) preview.restart(frames, profile.speedFps(state), state)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
-        })
-        row.addView(Button(this).apply {
-            text = "PREVIEW"
-            isEnabled = frames.isNotEmpty()
-            setOnClickListener { startPreview(state) }
-        })
-        if (frames.isNotEmpty()) row.addView(Button(this).apply {
-            text = "CLEAR"
-            setOnClickListener {
-                profile.frames[state]?.clear()
-                refreshState(state)
-                if (preview.currentState == state) preview.stop()
-            }
-        })
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun startPreview(state: String) {
@@ -245,6 +485,7 @@ class AliveEditorActivity : AppCompatActivity() {
         profile.name = nameInput.text.toString().trim().ifEmpty { "Alive 1" }
         profile.sizePercent = profile.sizePercent.coerceIn(25, 200)
         AliveRepository.save(this, profile)
+        refreshRunningAlives()
         Toast.makeText(this, "Alive saved", Toast.LENGTH_SHORT).show()
         if (useAfterSave) {
             AliveRepository.setActive(this, profile)
@@ -260,10 +501,18 @@ class AliveEditorActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 AliveRepository.delete(this, profile.id)
+                refreshRunningAlives()
                 Toast.makeText(this, "Alive deleted", Toast.LENGTH_SHORT).show()
                 finish()
             }
             .show()
+    }
+
+    private fun refreshRunningAlives() {
+        if (AliveService.isRunning && Settings.canDrawOverlays(this)) {
+            ContextCompat.startForegroundService(this, Intent(this, AliveService::class.java)
+                .setAction(AliveService.ACTION_SHOW_EQUIPPED))
+        }
     }
 
     private fun String.titleCase(): String = lowercase().replaceFirstChar { it.uppercase() }

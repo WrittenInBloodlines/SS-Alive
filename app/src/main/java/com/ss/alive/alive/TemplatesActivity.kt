@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
+import com.ss.alive.ui.AliveUi
 
 class TemplatesActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
@@ -46,15 +47,15 @@ class TemplatesActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 48, 40, 48)
-        }
-        setContentView(root)
+        val (scroll, content) = AliveUi.scrollPage(this)
+        root = content
+        setContentView(scroll)
         registerTemplateReceiver()
         clearStoredTemplateResult()
         showLoading()
-        AccountBridge.requestTemplates(this)
+        if (!AccountBridge.requestTemplates(this)) {
+            showBridgeError("HUB_NOT_INSTALLED")
+        }
     }
 
     override fun onResume() {
@@ -97,81 +98,115 @@ class TemplatesActivity : AppCompatActivity() {
 
     private fun consumeTemplateResult(json: String?, error: String?) {
         if (error != null) {
-            Toast.makeText(this, "Template error: $error", Toast.LENGTH_SHORT).show()
+            showBridgeError(error)
             return
         }
         renderTemplates(json.orEmpty())
     }
 
+    private fun showBridgeError(error: String) {
+        root.removeAllViews()
+        root.addView(AliveUi.label(this, "S•S ALIVE  /  LIBRARY"))
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.heading(this, "Templates unavailable", 25f))
+        val message = when (error) {
+            "NOT_SIGNED_IN" -> "Open S•S Hub and sign in with your S•S account, then return and try again."
+            "EMAIL_NOT_VERIFIED" -> "Verify your email address in S•S Hub before using connected features."
+            "HUB_NOT_INSTALLED" -> "S•S Hub must be installed to load shared templates."
+            "PROFILE_INVALID" -> "Your Hub profile could not be verified. Open S•S Hub and sign in again."
+            else -> "S•S Hub could not provide templates ($error). Check your connection and try again."
+        }
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.body(this, message, 14f))
+        root.addView(AliveUi.gap(this, 16))
+        root.addView(AliveUi.button(this, "Open S•S Hub", true) {
+            val launchIntent = packageManager.getLaunchIntentForPackage("com.ss.hub")
+            if (launchIntent == null) {
+                Toast.makeText(this, "S•S Hub is not installed.", Toast.LENGTH_LONG).show()
+            } else {
+                startActivity(launchIntent)
+            }
+        })
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.button(this, "Try again", false) {
+            showLoading()
+            if (!AccountBridge.requestTemplates(this)) showBridgeError("HUB_NOT_INSTALLED")
+        })
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.button(this, "Back", false) { finish() })
+    }
+
     private fun showLoading() {
         root.removeAllViews()
-        root.addView(TextView(this).apply { text = "TEMPLATES"; textSize = 30f })
-        root.addView(TextView(this).apply {
-            text = "Loading S•S templates..."
-            textSize = 16f
-            setPadding(0, 18, 0, 18)
-        })
+        root.addView(AliveUi.label(this, "S•S ALIVE  /  LIBRARY"))
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.heading(this, "Templates", 28f))
+        root.addView(AliveUi.body(this, "Discover ready-made characters for your screen."))
+        root.addView(AliveUi.gap(this, 20))
+        val loading = AliveUi.column(this)
+        loading.addView(AliveUi.heading(this, "Loading templates…", 18f))
+        loading.addView(AliveUi.body(this, "This may take a moment."))
+        root.addView(AliveUi.card(this, loading))
     }
 
     private fun renderTemplates(json: String) {
         root.removeAllViews()
-        root.addView(TextView(this).apply { text = "TEMPLATES"; textSize = 30f })
+        root.addView(AliveUi.label(this, "S•S ALIVE  /  LIBRARY"))
+        root.addView(AliveUi.gap(this, 8))
+        root.addView(AliveUi.heading(this, "Templates", 28f))
+        root.addView(AliveUi.body(this, "Find a character you like and add it to your Alives."))
+        root.addView(AliveUi.gap(this, 16))
 
         if (AliveAccountStore.get(this)?.isCreator == true) {
-            root.addView(Button(this).apply {
-                text = "+  CREATE TEMPLATE"
-                setOnClickListener { showCreateTemplateDialog() }
+            root.addView(AliveUi.button(this, "Create a template", true) {
+                showCreateTemplateDialog()
             })
+            root.addView(AliveUi.gap(this, 14))
         }
-
-        val scroll = ScrollView(this)
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(list)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         val array = runCatching { JSONArray(json) }.getOrElse { JSONArray() }
         if (array.length() == 0) {
-            list.addView(TextView(this).apply {
-                text = "No templates published yet."
-                textSize = 16f
-                setPadding(0, 24, 0, 24)
-            })
+            val empty = AliveUi.column(this)
+            empty.addView(AliveUi.heading(this, "Nothing here yet", 18f))
+            empty.addView(AliveUi.body(this, "No templates have been published yet. Check back later."))
+            root.addView(AliveUi.card(this, empty))
         }
 
         for (i in 0 until array.length()) {
             val item = array.optJSONObject(i) ?: continue
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 20, 0, 20)
+            val card = AliveUi.column(this)
+            val top = AliveUi.row(this)
+            val image = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setBackgroundColor(AliveUi.surfaceRaised)
             }
-            val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
             runCatching {
                 val bytes = Base64.decode(item.optString("imageData"), Base64.DEFAULT)
                 image.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
             }
-            card.addView(image, LinearLayout.LayoutParams(180, 180))
-
-            val info = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(20, 0, 0, 0)
+            top.addView(image, LinearLayout.LayoutParams(
+                AliveUi.dp(this, 92), AliveUi.dp(this, 92)
+            ))
+            val info = AliveUi.column(this)
+            info.setPadding(AliveUi.dp(this, 12), 0, 0, 0)
+            info.addView(AliveUi.heading(this, item.optString("name", "Unnamed template"), 17f))
+            info.addView(AliveUi.body(this, "by ${item.optString("author", "S•S")}", 12f))
+            top.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
+            card.addView(top)
+            val description = item.optString("description", "").trim()
+            if (description.isNotEmpty()) {
+                card.addView(AliveUi.gap(this, 10))
+                card.addView(AliveUi.body(this, description, 13f))
             }
-            info.addView(TextView(this).apply { text = item.optString("name", "Unnamed Template"); textSize = 20f })
-            info.addView(TextView(this).apply {
-                text = item.optString("description", "")
-                textSize = 14f
-                setPadding(0, 6, 0, 8)
+            card.addView(AliveUi.gap(this, 12))
+            card.addView(AliveUi.button(this, "Add to my Alives", true) {
+                installTemplate(item)
             })
-            info.addView(TextView(this).apply { text = "by ${item.optString("author", "S•S")}"; textSize = 12f })
-            info.addView(Button(this).apply {
-                text = "USE TEMPLATE"
-                setOnClickListener { installTemplate(item) }
-            })
-            card.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-            list.addView(card)
+            root.addView(AliveUi.card(this, card))
         }
 
-        root.addView(Button(this).apply { text = "BACK"; setOnClickListener { finish() } })
+        root.addView(AliveUi.gap(this, 4))
+        root.addView(AliveUi.button(this, "Back", false) { finish() })
     }
 
     private fun showCreateTemplateDialog() {
@@ -190,14 +225,23 @@ class TemplatesActivity : AppCompatActivity() {
             .setPositiveButton("Choose photo") { _, _ ->
                 val n = name.text.toString().trim()
                 val d = description.text.toString().trim()
-                if (n.isEmpty()) {
-                    Toast.makeText(this, "Enter a template name first.", Toast.LENGTH_SHORT).show()
-                } else {
-                    getPreferences(MODE_PRIVATE).edit()
-                        .putString("pending_template_name", n)
-                        .putString("pending_template_description", d)
-                        .apply()
-                    pickTemplateImage.launch("image/*")
+                when {
+                    n.isEmpty() -> {
+                        Toast.makeText(this, "Enter a template name first.", Toast.LENGTH_SHORT).show()
+                    }
+                    n.length > 80 -> {
+                        Toast.makeText(this, "Template names must be 80 characters or fewer.", Toast.LENGTH_LONG).show()
+                    }
+                    d.length > 2000 -> {
+                        Toast.makeText(this, "Descriptions must be 2000 characters or fewer.", Toast.LENGTH_LONG).show()
+                    }
+                    else -> {
+                        getPreferences(MODE_PRIVATE).edit()
+                            .putString("pending_template_name", n)
+                            .putString("pending_template_description", d)
+                            .apply()
+                        pickTemplateImage.launch("image/*")
+                    }
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -215,12 +259,21 @@ class TemplatesActivity : AppCompatActivity() {
             Toast.makeText(this, "Could not read that image.", Toast.LENGTH_SHORT).show()
             return
         }
-        AccountBridge.createTemplate(this, name, description, compressForTemplate(bitmap))
-        Toast.makeText(this, "Publishing template...", Toast.LENGTH_SHORT).show()
+        val imageData = compressForTemplate(bitmap)
+        if (imageData.isBlank() || imageData.length > 30000) {
+            Toast.makeText(this, "This image could not be compressed small enough. Please choose another image.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val started = AccountBridge.createTemplate(this, name, description, imageData)
+        if (started) {
+            Toast.makeText(this, "Publishing template...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Could not open S•S Hub. Make sure it is installed.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun compressForTemplate(source: Bitmap): String {
-        val max = 256
+        val max = 128
         val scale = minOf(1f, max.toFloat() / maxOf(source.width, source.height))
         val scaled = Bitmap.createScaledBitmap(
             source,
@@ -229,7 +282,7 @@ class TemplatesActivity : AppCompatActivity() {
             true
         )
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 55, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
